@@ -2,19 +2,17 @@
 pragma solidity ^0.8.13;
 
 import {Script, console} from "forge-std/Script.sol";
-import {Counter} from "../src/Counter.sol";
+import {Bank} from "../src/Bank.sol";
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
-contract CounterScript is Script {
-    Counter public counter;
+contract BankScript is Script {
+    Bank public bank;
 
     function setUp() public {}
 
     function run() public {
         vm.startBroadcast();
 
-        counter = new Counter();
+        bank = new Bank();
 
         vm.stopBroadcast();
     }
