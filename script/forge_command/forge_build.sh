@@ -1,5 +1,5 @@
 #!/bin/bash
 
-# demo
-forge build --names --sizes --no-cache src/*.sol
+# Build the contracts
+forge build --names --sizes --no-cache src/Bank.sol
 
