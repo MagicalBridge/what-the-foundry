@@ -1,0 +1,11 @@
+{
+  "root": true,
+  "include": [
+    "**/*.sol"
+  ],
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+  "editor.formatOnSave": true,
+  "solidity.preferences.quoteStyle": "double",
+  "solidity.preferences.bracketSpacing": true
+}
