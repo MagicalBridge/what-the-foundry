@@ -93,5 +93,44 @@ contract IDOLaunchTest is Test {
     }
 
     // 测试withdraw函数
-    function testWithdraw() public {}
+    function testWithdraw() public {
+        vm.prank(alice);
+        idoContract.preSale{value: 10 ether}();
+        assertEq(idoContract.contributions(alice), 10 ether);
+        assertEq(idoContract.totalFundsRaised(), 10 ether);
+
+        vm.prank(bob);
+        idoContract.preSale{value: 90 ether}();
+        assertEq(idoContract.contributions(bob), 90 ether);
+        assertEq(idoContract.totalFundsRaised(), 100 ether);
+
+        vm.prank(owner);
+        idoContract.endIDO();
+        assertEq(idoContract.isIDOActive(), false);
+        assertEq(idoContract.isIDOSuccess(), true);
+
+        console.log("idoContract balance ", address(idoContract).balance);
+
+        vm.prank(owner);
+        idoContract.withdraw();
+        console.log("idoContract balance ", address(idoContract).balance);
+        assertEq(address(idoContract).balance, 0);
+    }
+
+    function testCannotWithdraw() public {
+        vm.prank(alice);
+        idoContract.preSale{value: 10 ether}();
+        assertEq(idoContract.contributions(alice), 10 ether);
+        assertEq(idoContract.totalFundsRaised(), 10 ether);
+
+        vm.prank(bob);
+        idoContract.preSale{value: 80 ether}();
+        assertEq(idoContract.contributions(bob), 80 ether);
+        assertEq(idoContract.totalFundsRaised(), 90 ether);
+
+        vm.startPrank(owner);
+        vm.expectRevert("IDO did not meet the minimum goal");
+        idoContract.withdraw();
+        vm.stopPrank();
+    }
 }
