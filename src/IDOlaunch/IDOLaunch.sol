@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract IDOContract is Ownable {
+contract IDOContract is Ownable, ReentrancyGuard {
     IERC20 public rntToken;
     // 代币的比率是 1:1000 ，所以 1 ETH = 1000 RNT
     uint256 public constant TOKEN_RATE = 1000; // 1 ETH = 1000 RNT
@@ -74,12 +75,11 @@ contract IDOContract is Ownable {
         }
     }
 
-    function claimTokens() external onlyWhenIDOInactive {
+    function claimTokens() external onlyWhenIDOInactive nonReentrant {
         require(contributions[msg.sender] > 0, "No contribution made");
         require(!hasClaimed[msg.sender], "Tokens already claimed");
 
         uint256 contribution = contributions[msg.sender];
-
         hasClaimed[msg.sender] = true;
 
         if (isIDOSuccess) {
@@ -87,7 +87,8 @@ contract IDOContract is Ownable {
             rntToken.transfer(msg.sender, tokenAmount);
             emit ClaimTokens(msg.sender, tokenAmount);
         } else {
-            payable(msg.sender).transfer(contribution);
+            (bool success,) = payable(msg.sender).call{value: contribution}("");
+            require(success, "Transfer failed");
             emit ClaimTokens(msg.sender, contribution);
         }
     }

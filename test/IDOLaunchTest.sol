@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Test, console} from "forge-std/Test.sol";
-import {IDOContract} from "../src/IDOLaunch.sol";
+import {IDOContract} from "../src/IDOlaunch/IDOLaunch.sol";
 
 contract RNTToken is ERC20 {
     constructor() ERC20("RNTToken", "RNT") {
