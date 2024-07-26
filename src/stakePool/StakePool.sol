@@ -46,7 +46,12 @@ contract StakePool {
         // 当前的时间戳 - 用户上次更新的时间戳 就是需要累加的秒数
         // 累加的秒数 * 用户当前质押的RNT数量 / 86400 = 需要累加的esRNT数量
         if (user.stakedAmount > 0) {
-            user.unclaimedAmount += (block.timestamp - user.updateTime) * user.stakedAmount / 86400;
+            uint256 newUnclaimedAmount = (block.timestamp - user.updateTime) * user.stakedAmount / 86400;
+            user.unclaimedAmount += newUnclaimedAmount;
+
+            if (newUnclaimedAmount > 0) {
+                emit RewardUpdated(msg.sender, user.unclaimedAmount);
+            }
         } else {
             // 将用户第一次的质押时间记录更新
             user.updateTime = block.timestamp;
@@ -72,7 +77,12 @@ contract StakePool {
         require(user.stakedAmount >= amount, "Insufficient staked amount");
 
         // 解除质押的时候也需要更新用户未提取的RNT的数量
-        user.unclaimedAmount += (block.timestamp - user.updateTime) * user.stakedAmount / 86400;
+        uint256 newUnclaimedAmount = (block.timestamp - user.updateTime) * user.stakedAmount / 86400;
+        user.unclaimedAmount += newUnclaimedAmount;
+
+        if (newUnclaimedAmount > 0) {
+            emit RewardUpdated(msg.sender, user.unclaimedAmount);
+        }
 
         // 更新用户质押的数量和更新时间
         user.stakedAmount -= amount;
