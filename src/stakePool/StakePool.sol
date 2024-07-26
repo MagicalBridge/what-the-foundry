@@ -26,6 +26,11 @@ contract StakePool {
     // 用户地址对于质押信息的映射
     mapping(address => UserStakeInfo) public userStakeInfo;
 
+    event Staked(address indexed user, uint256 amount);
+    event Unstaked(address indexed user, uint256 amount);
+    event Claimed(address indexed user, uint256 amount);
+    event RewardUpdated(address indexed user, uint256 newUnclaimedAmount);
+
     constructor(RNTToken _rntToken, EsRNTToken _esrntToken) {
         rntToken = _rntToken;
         esrntToken = _esrntToken;
@@ -56,6 +61,8 @@ contract StakePool {
 
         // 更新用户在StakePool合约中的质押的RNT的代币数量
         stakes[address(rntToken)][msg.sender] += amount;
+
+        emit Staked(msg.sender, amount);
     }
 
     function unStake(uint256 amount) public {
@@ -76,6 +83,8 @@ contract StakePool {
 
         // 更新用户在StakePool合约中的质押的RNT的代币数量
         stakes[address(rntToken)][msg.sender] -= amount;
+
+        emit Unstaked(msg.sender, amount);
     }
 
     function claim() public {
@@ -94,5 +103,7 @@ contract StakePool {
 
         // 将奖励的esRNT mint 给用户
         esrntToken.mint(msg.sender, reward);
+
+        emit Claimed(msg.sender, reward);
     }
 }
