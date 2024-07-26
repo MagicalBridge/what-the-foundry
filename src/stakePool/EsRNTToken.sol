@@ -3,12 +3,15 @@ pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract EsRNTToken is ERC20 {
+contract EsRNTToken is ERC20, Ownable {
     IERC20 public rntToken;
 
     LockInfo[] public lockArr;
     uint256 public lockPeriod = 2592000;
+
+    address public stakePoolAddress;
 
     struct LockInfo {
         address user;
@@ -17,14 +20,18 @@ contract EsRNTToken is ERC20 {
         uint256 burnedAmount;
     }
 
-    constructor(IERC20 _rntToken) ERC20("EsRNTToken", "esRNT") {
+    constructor(IERC20 _rntToken) ERC20("EsRNTToken", "esRNT") Ownable(msg.sender) {
         // 部署的时候，需要传入RNT的地址
         rntToken = _rntToken;
     }
 
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
+    function setStakePoolAddress(address _stakePoolAddress) external onlyOwner {
+        stakePoolAddress = _stakePoolAddress;
+    }
 
+    function mint(address to, uint256 amount) external {
+        require(msg.sender == stakePoolAddress, "Only stake pool can mint esRNT");
+        _mint(to, amount);
         // 记录锁仓信息，其中的时间是mint那一刻的时间
         lockArr.push(LockInfo({user: to, amount: amount, lockTime: block.timestamp, burnedAmount: 0}));
     }

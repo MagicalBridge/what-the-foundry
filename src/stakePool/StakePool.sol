@@ -40,11 +40,15 @@ contract StakePool {
         // 一天换算成秒数为 86400
         // 当前的时间戳 - 用户上次更新的时间戳 就是需要累加的秒数
         // 累加的秒数 * 用户当前质押的RNT数量 / 86400 = 需要累加的esRNT数量
-        user.unclaimedAmount += (block.timestamp - user.updateTime) * user.stakedAmount / 86400;
+        if (user.stakedAmount > 0) {
+            user.unclaimedAmount += (block.timestamp - user.updateTime) * user.stakedAmount / 86400;
+        } else {
+            // 将用户第一次的质押时间记录更新
+            user.updateTime = block.timestamp;
+        }
 
         // 更新用户的质押数量和更新时间
         user.stakedAmount += amount;
-        user.updateTime = block.timestamp; // 将更新时间设置为当前区块的时间戳
 
         // 将用户rntToken转移到当前的StakePool合约
         // transferFrom需要先在rntToken的approve方法中设置允许StakePool合约从用户地址中转出rntToken
@@ -88,7 +92,7 @@ contract StakePool {
         // 将等值的RNT从质押池转移到esRNT合约
         rntToken.safeTransfer(address(esrntToken), reward);
 
-        // mint esRNT给用户
+        // 将奖励的esRNT mint 给用户
         esrntToken.mint(msg.sender, reward);
     }
 }
