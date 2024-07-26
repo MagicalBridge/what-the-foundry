@@ -13,17 +13,17 @@ contract StakePool {
     RNTToken public rntToken;
     EsRNTToken public esrntToken;
 
-    // 记录用户质押信息
+    // Record user stake information
     struct UserStakeInfo {
         uint256 stakedAmount;
         uint256 updateTime;
         uint256 unclaimedAmount;
     }
 
-    // 设置一个mapping来存储指定Token每个用户的质押数量。
+    // Mapping of user addresses to their stakes
     mapping(address => mapping(address => uint256)) private stakes;
 
-    // 用户地址对于质押信息的映射
+    // Mapping of user addresses to their stake information
     mapping(address => UserStakeInfo) public userStakeInfo;
 
     event Staked(address indexed user, uint256 amount);
@@ -37,14 +37,14 @@ contract StakePool {
     }
 
     function stake(uint256 amount) public {
-        // 从结构体中获取到当前操作用户的质押信息
+        // Get the user's stake information from the struct
         UserStakeInfo storage user = userStakeInfo[msg.sender];
 
-        // 更新用户未提取的收益信息
-        // 我的质押奖励计算需要精确到秒级别，根据规则每质押一个RNT,一天可以获得一个esRNT
-        // 一天换算成秒数为 86400
-        // 当前的时间戳 - 用户上次更新的时间戳 就是需要累加的秒数
-        // 累加的秒数 * 用户当前质押的RNT数量 / 86400 = 需要累加的esRNT数量
+        // Update the user's unclaimed rewards
+        // The reward calculation needs to be precise to the second level, according to the rules, each staked RNT can earn one esRNT per day
+        // One day is converted to seconds, which is 86400
+        // The number of seconds since the user's last update time is the number of seconds that need to be added
+        // The number of seconds that need to be added * the user's current staked RNT amount / 86400 = the number of esRNT that need to be added
         if (user.stakedAmount > 0) {
             uint256 newUnclaimedAmount = (block.timestamp - user.updateTime) * user.stakedAmount / 86400;
             user.unclaimedAmount += newUnclaimedAmount;
@@ -53,30 +53,30 @@ contract StakePool {
                 emit RewardUpdated(msg.sender, user.unclaimedAmount);
             }
         } else {
-            // 将用户第一次的质押时间记录更新
+            // Record the user's first stake time
             user.updateTime = block.timestamp;
         }
 
-        // 更新用户的质押数量和更新时间
+        // Update the user's staked amount and update time
         user.stakedAmount += amount;
 
-        // 将用户rntToken转移到当前的StakePool合约
-        // transferFrom需要先在rntToken的approve方法中设置允许StakePool合约从用户地址中转出rntToken
+        // Transfer the user's RNT tokens to this contract
+        // transferFrom needs to be set to allow this contract to transfer RNT tokens from the user's address
         rntToken.transferFrom(msg.sender, address(this), amount);
 
-        // 更新用户在StakePool合约中的质押的RNT的代币数量
+        // Update the user's staked RNT amount in this contract
         stakes[address(rntToken)][msg.sender] += amount;
 
         emit Staked(msg.sender, amount);
     }
 
     function unStake(uint256 amount) public {
-        // 从结构体中获取到用户的质押信息
+        // Get the user's stake information from the struct
         UserStakeInfo storage user = userStakeInfo[msg.sender];
-        // 用户提取的RNT数量不能超过用户当前未提取的RNT数量
+        // The user's unstaked RNT amount cannot exceed their current unclaimed RNT amount
         require(user.stakedAmount >= amount, "Insufficient staked amount");
 
-        // 解除质押的时候也需要更新用户未提取的RNT的数量
+        // Update the user's unclaimed rewards when unstaking
         uint256 newUnclaimedAmount = (block.timestamp - user.updateTime) * user.stakedAmount / 86400;
         user.unclaimedAmount += newUnclaimedAmount;
 
@@ -84,34 +84,34 @@ contract StakePool {
             emit RewardUpdated(msg.sender, user.unclaimedAmount);
         }
 
-        // 更新用户质押的数量和更新时间
+        // Update the user's staked amount and update time
         user.stakedAmount -= amount;
         user.updateTime = block.timestamp;
 
-        // 将用户的RNTToken转移到用户地址
+        // Transfer the user's RNT tokens to their address
         rntToken.transfer(msg.sender, amount);
 
-        // 更新用户在StakePool合约中的质押的RNT的代币数量
+        // Update the user's staked RNT amount in this contract
         stakes[address(rntToken)][msg.sender] -= amount;
 
         emit Unstaked(msg.sender, amount);
     }
 
     function claim() public {
-        // 取出当前用户的质押信息
+        // Get the user's stake information from the struct
         UserStakeInfo storage user = userStakeInfo[msg.sender];
 
-        // 计算用户在claim瞬间的汇总的收益
+        // Calculate the user's total rewards at the time of claiming
         uint256 reward = user.unclaimedAmount + (block.timestamp - user.updateTime) * user.stakedAmount / 86400;
 
-        // 重置用户的未提取收益和最后操作时间
+        // Reset the user's unclaimed rewards and last update time
         user.unclaimedAmount = 0;
         user.updateTime = block.timestamp;
 
-        // 将等值的RNT从质押池转移到esRNT合约
+        // Transfer the equivalent RNT from the stake pool to the esRNT contract
         rntToken.safeTransfer(address(esrntToken), reward);
 
-        // 将奖励的esRNT mint 给用户
+        // Mint the rewards' esRNT to the user
         esrntToken.mint(msg.sender, reward);
 
         emit Claimed(msg.sender, reward);
