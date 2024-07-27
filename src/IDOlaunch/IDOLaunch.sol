@@ -9,6 +9,11 @@ contract IDOContract is Ownable, ReentrancyGuard {
     // Reference to the RNT token contract
     IERC20 public rntToken;
 
+    uint256 public constant MIN_CONTRIBUTION = 0.1 ether;
+    uint256 public constant MAX_CONTRIBUTION = 5 ether;
+    uint256 public constant MAX_PARTICIPANTS = 1000;
+    uint256 public participantCount;
+
     // Token rate: 1 ETH = 1000 RNT
     uint256 public constant TOKEN_RATE = 1000;
 
@@ -79,8 +84,17 @@ contract IDOContract is Ownable, ReentrancyGuard {
         // Ensure the contribution is greater than 0
         require(msg.value > 0, "Must send ETH to participate");
 
+        require(msg.value >= MIN_CONTRIBUTION, "Contribution too low");
+        require(msg.value <= MAX_CONTRIBUTION, "Contribution too high");
+        require(contributions[msg.sender] + msg.value <= MAX_CONTRIBUTION, "Would exceed max contribution");
+
         // Ensure the total funds raised do not exceed the hard cap
         require(totalFundsRaised + msg.value <= HARD_CAP, "Hard cap reached");
+
+        if (contributions[msg.sender] == 0) {
+            require(participantCount < MAX_PARTICIPANTS, "Max participants reached");
+            participantCount++;
+        }
 
         // Record the contributor's contribution
         contributions[msg.sender] += msg.value;
