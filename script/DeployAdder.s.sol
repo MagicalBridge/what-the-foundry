@@ -4,7 +4,7 @@ pragma solidity 0.8.25;
 import {Script, console} from "forge-std/Script.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {AdderUpgradeable} from "../src/AdderUpgradeable.sol";
+import {AdderUpgradeable} from "../src/UUPS_Proxy/AdderUpgradeable.sol";
 
 contract DeployAdder is Script {
     function run() external {
