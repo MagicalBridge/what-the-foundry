@@ -19,6 +19,7 @@ contract DeployAdder is Script {
         // 并初始化AdderUpgradeable的initialize函数
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initializeData);
 
+        // 执行add函数
         AdderUpgradeable(address(proxy)).add(10);
 
         console.log("Adder deployed at:", address(proxy));
