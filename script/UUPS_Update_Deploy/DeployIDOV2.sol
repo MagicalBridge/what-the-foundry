@@ -4,7 +4,7 @@ pragma solidity 0.8.25;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Script, console} from "forge-std/Script.sol";
-import {IDOlounchUpgradeableV2} from "../src/UUPS_Proxy/IDOlounchUpgradeableV2.sol";
+import {IDOlounchUpgradeableV2} from "../../src/UUPS_Proxy/IDOlounchUpgradeableV2.sol";
 
 contract DeployIDOV2 is Script {
     function setUp() public {}
