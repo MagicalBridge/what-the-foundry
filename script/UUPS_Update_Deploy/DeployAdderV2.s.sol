@@ -9,6 +9,7 @@ import {Upgrades, Options} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 contract DeployAdderV2 is Script {
     function setUp() public {}
 
+    // 第一种方案：使用底层方法进行升级
     // function run() external {
     //     uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
     //     address proxyAddress = vm.envAddress("PROXY_ADDRESS");

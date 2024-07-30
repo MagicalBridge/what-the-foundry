@@ -14,9 +14,10 @@ contract DeployAdder is Script {
 
         // 部署一个新的AdderUpgradeable合约
         AdderUpgradeable implementation = new AdderUpgradeable();
+
         bytes memory initializeData = abi.encodeWithSelector(AdderUpgradeable.initialize.selector);
-        // 部署一个新的ERC1967Proxy，指向AdderUpgradeable合约
-        // 并初始化AdderUpgradeable的initialize函数
+
+        // 部署一个新的ERC1967Proxy，指向AdderUpgradeable合约，并初始化AdderUpgradeable的initialize函数
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initializeData);
 
         // 执行add函数
