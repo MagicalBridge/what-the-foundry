@@ -19,11 +19,11 @@ contract MultisignatureWallet {
 
     // The structure of the transaction
     struct Transaction {
-        address to;
-        uint256 value;
-        bytes data;
-        bool executed;
-        uint256 numConfirmations;
+        address to; // The recipient address
+        uint256 value; // The transfer amount
+        bytes data; // The method content of the call, in ABI bytes format
+        bool executed; // Whether it has been executed
+        uint256 numConfirmations; // The number of approvals this transaction has
     }
 
     // mapping from tx index => owner => bool
@@ -78,14 +78,17 @@ contract MultisignatureWallet {
         numConfirmationsRequired = _numConfirmationsRequired;
     }
 
+    // Ether is allowed to be received
     receive() external payable {
         emit Deposit(msg.sender, msg.value, address(this).balance);
     }
 
     // Only the wallet administrator can submit a transaction
     function submitTransaction(address _to, uint256 _value, bytes memory _data) public onlyOwner {
+        // Calculate the current number of transactions from the array
         uint256 txIndex = transactions.length;
 
+        // Add the transaction to the array
         transactions.push(Transaction({to: _to, value: _value, data: _data, executed: false, numConfirmations: 0}));
 
         emit SubmitTransaction(msg.sender, txIndex, _to, _value, _data);
