@@ -18,6 +18,10 @@ contract MultisignatureWalletTest is Test {
         address indexed owner, uint256 indexed txIndex, address indexed to, uint256 value, bytes data
     );
 
+    event ConfirmTransaction(address indexed owner, uint256 indexed txIndex);
+
+    event RevokeConfirmation(address indexed owner, uint256 indexed txIndex);
+
     function setUp() public {
         signer1 = makeAddr("signer1");
         signer2 = makeAddr("signer2");
@@ -64,6 +68,99 @@ contract MultisignatureWalletTest is Test {
         assertEq(txData, data);
         assertEq(executed, false);
         assertEq(numConfirmations, 0);
+    }
+
+    function testConfirmTransaction() public {
+        // Assume that a transaction has been successfully submitted
+        // prepare transaction
+        recipient = makeAddr("recipient");
+        uint256 value = 1 ether;
+        bytes memory data = "0x1234";
+
+        // signer1 submits transaction
+        vm.prank(signer1);
+        wallet.submitTransaction(recipient, value, data);
+
+        uint256 txIndex = 0;
+
+        // signer2 confirms transaction
+        vm.expectEmit(true, true, true, true);
+        emit ConfirmTransaction(signer2, txIndex);
+
+        vm.prank(signer2);
+        wallet.confirmTransaction(txIndex);
+
+        // verify number of confirmations for the transaction
+        (address toAddress, uint256 txValue, bytes memory txData, bool executed, uint256 numConfirmations) =
+            wallet.getTransaction(txIndex);
+
+        assertEq(toAddress, recipient);
+        assertEq(txValue, value);
+        assertEq(txData, data);
+        assertEq(executed, false);
+        assertEq(numConfirmations, 1);
+
+        // verify tx is confirmed for signer2
+        assertTrue(wallet.isConfirmed(txIndex, signer2));
+
+        // make sure that signer2 cannot confirm twice
+        vm.expectRevert("tx already confirmed");
+        vm.prank(signer2);
+        wallet.confirmTransaction(txIndex);
+
+        // make sure that owner can confirm transaction
+        address nonOwner = makeAddr("nonOwner");
+        vm.expectRevert("not owner");
+        vm.prank(nonOwner);
+        wallet.confirmTransaction(txIndex);
+    }
+
+    function testRevokeConfirmation() public {
+        address to = makeAddr("recipient");
+        uint256 value = 1 ether;
+        bytes memory data = "0x1234";
+
+        // signer1 submits transaction
+        vm.prank(signer1);
+        wallet.submitTransaction(to, value, data);
+
+        uint256 txIndex = 0;
+
+        // signer2 confirms transaction
+        vm.prank(signer2);
+        wallet.confirmTransaction(txIndex);
+
+        vm.expectEmit(true, true, true, true);
+        emit RevokeConfirmation(signer2, txIndex);
+
+        vm.prank(signer2);
+        wallet.revokeConfirmation(txIndex);
+
+        // verify number of confirmations for the transaction
+        (address toAddress, uint256 txValue, bytes memory txData, bool executed, uint256 numConfirmations) =
+            wallet.getTransaction(txIndex);
+
+        // verify transaction details
+        assertEq(toAddress, to);
+        assertEq(txValue, value);
+        assertEq(txData, data);
+        assertEq(executed, false);
+        assertEq(numConfirmations, 0);
+
+        // verify confirmations
+        // revoke before executing
+        assertFalse(wallet.isConfirmed(txIndex, signer2));
+
+        // make sure that signer2 cannot revoke non-existent confirmation
+        vm.expectRevert("tx not confirmed");
+        vm.prank(signer2);
+        wallet.revokeConfirmation(txIndex);
+
+        // make sure that non-owner cannot revoke confirmations
+        address nonOwner = makeAddr("nonOwner");
+        vm.expectRevert("not owner");
+        vm.prank(nonOwner);
+        wallet.revokeConfirmation(txIndex);
     }
 
     function testGetOwners() public view {
