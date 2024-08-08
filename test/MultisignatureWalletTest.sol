@@ -17,10 +17,9 @@ contract MultisignatureWalletTest is Test {
     event SubmitTransaction(
         address indexed owner, uint256 indexed txIndex, address indexed to, uint256 value, bytes data
     );
-
     event ConfirmTransaction(address indexed owner, uint256 indexed txIndex);
-
     event RevokeConfirmation(address indexed owner, uint256 indexed txIndex);
+    event ExecuteTransaction(address indexed owner, uint256 indexed txIndex);
 
     function setUp() public {
         signer1 = makeAddr("signer1");
@@ -161,6 +160,65 @@ contract MultisignatureWalletTest is Test {
         vm.expectRevert("not owner");
         vm.prank(nonOwner);
         wallet.revokeConfirmation(txIndex);
+    }
+
+    function testExecuteTransaction() public {
+        recipient = makeAddr("recipient");
+        uint256 value = 1 ether;
+        bytes memory data = "0x1234";
+
+        // signer1 submits transaction
+        vm.prank(signer1);
+        wallet.submitTransaction(recipient, value, data);
+
+        uint256 txIndex = 0;
+
+        // signer2 and signer3 confirm transaction
+        vm.prank(signer2);
+        wallet.confirmTransaction(txIndex);
+
+        vm.prank(signer3);
+        wallet.confirmTransaction(txIndex);
+
+        // signer1 executes transaction
+        vm.expectEmit(true, true, true, true);
+        emit ExecuteTransaction(signer1, txIndex);
+
+        vm.prank(signer1);
+        wallet.executeTransaction(txIndex);
+
+        // verify transaction execution
+        (address toAddress, uint256 txValue, bytes memory txData, bool executed, uint256 numConfirmations) =
+            wallet.getTransaction(txIndex);
+
+        // verify transaction details
+        assertEq(toAddress, recipient);
+        assertEq(txValue, value);
+        assertEq(txData, data);
+        assertEq(executed, true); // 执行状态应为 true
+        assertEq(numConfirmations, 2); // 确认次数应为 2
+
+        address nonOwner = makeAddr("nonOwner");
+        vm.expectRevert("not owner");
+        vm.prank(nonOwner);
+        wallet.executeTransaction(txIndex);
+
+        // make sure that it cannot be executed twice
+        vm.expectRevert("tx already executed");
+        vm.prank(signer1);
+        wallet.executeTransaction(txIndex);
+
+        uint256 insufficientTxIndex = 1;
+
+        vm.prank(signer1);
+        wallet.submitTransaction(recipient, value, data);
+
+        vm.prank(signer2);
+        wallet.confirmTransaction(insufficientTxIndex);
+
+        vm.expectRevert("cannot execute tx");
+        vm.prank(signer1);
+        wallet.executeTransaction(insufficientTxIndex);
     }
 
     function testGetOwners() public view {
