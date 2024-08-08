@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity 0.8.25;
 
 contract MultisignatureWallet {
     event Deposit(address indexed sender, uint256 amount, uint256 balance);
@@ -10,10 +10,14 @@ contract MultisignatureWallet {
     event RevokeConfirmation(address indexed owner, uint256 indexed txIndex);
     event ExecuteTransaction(address indexed owner, uint256 indexed txIndex);
 
+    // Store all wallet administrator addresses
     address[] public owners;
+    // To determine whether the specified address is an administrator
     mapping(address => bool) public isOwner;
+    // The minimum authorization threshold that allows a transaction to be executed
     uint256 public numConfirmationsRequired;
 
+    // The structure of the transaction
     struct Transaction {
         address to;
         uint256 value;
@@ -25,8 +29,10 @@ contract MultisignatureWallet {
     // mapping from tx index => owner => bool
     mapping(uint256 => mapping(address => bool)) public isConfirmed;
 
+    // There will be many transactions, and the array is used to store the transaction structure
     Transaction[] public transactions;
 
+    // Only the owner can operate this operation
     modifier onlyOwner() {
         require(isOwner[msg.sender], "not owner");
         _;
@@ -48,16 +54,21 @@ contract MultisignatureWallet {
     }
 
     constructor(address[] memory _owners, uint256 _numConfirmationsRequired) {
+        // When the contract is deployed, the administrator address needs to be passed in
         require(_owners.length > 0, "owners required");
+        // The number of permissions should be smaller than the number of administrators
         require(
             _numConfirmationsRequired > 0 && _numConfirmationsRequired <= _owners.length,
             "invalid number of required confirmations"
         );
 
+        // A simple loop that fills the administrator's data
         for (uint256 i = 0; i < _owners.length; i++) {
             address owner = _owners[i];
 
+            //The administrator address cannot be zero
             require(owner != address(0), "invalid owner");
+            // Do not have duplicate addresses
             require(!isOwner[owner], "owner not unique");
 
             isOwner[owner] = true;
@@ -71,6 +82,7 @@ contract MultisignatureWallet {
         emit Deposit(msg.sender, msg.value, address(this).balance);
     }
 
+    // Only the wallet administrator can submit a transaction
     function submitTransaction(address _to, uint256 _value, bytes memory _data) public onlyOwner {
         uint256 txIndex = transactions.length;
 
