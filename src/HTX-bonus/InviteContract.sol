@@ -16,15 +16,15 @@ contract InviteContract {
 
     mapping(address => User) users;
     mapping(address => bool) public hasDeposited;
-    mapping(address => bool) public hasBound; // 是否已经绑定邀请人
+    mapping(address => bool) public hasBound;
 
     struct User {
-        address inviter; // 上级的地址
-        address[] invitees; // 下级用户的数组
-        uint256 deposit; // 存入的金额
-        uint256 directReward; // 直接奖励
-        uint256 teamReward; // 团队奖励
-        uint256 totalReward; // 用户获得的总奖励
+        address inviter; // upper user address
+        address[] invitees; // lower users address
+        uint256 deposit; // deposit USDT amount
+        uint256 directReward;
+        uint256 teamReward;
+        uint256 totalReward;
     }
 
     constructor(address _usdtToken) {
@@ -33,17 +33,19 @@ contract InviteContract {
     }
 
     function bindUser(address _inviter) external {
+        // make sure user didn't deposit before
         require(!hasBound[msg.sender], "User has already bound an inviter");
+        // make sure not the zero address
         require(_inviter != address(0), "Invalid inviter address");
         require(_inviter != msg.sender, "Cannot invite yourself");
-        // 确保邀请人是一个已注册用户，并且已经入金
+        // Make sure the inviter is a registered user and has made a deposit
         require(hasDeposited[_inviter], "Inviter must be an active user");
 
-        // 记录推荐关系
+        // recoder binding relationship
         users[msg.sender].inviter = _inviter;
         users[_inviter].invitees.push(msg.sender);
 
-        // 设置用户为已绑定
+        // setting inviter address
         hasBound[msg.sender] = true;
     }
 
