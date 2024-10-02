@@ -10,8 +10,7 @@ contract PackDexWrapper is ReentrancyGuard {
     uint256 public constant FEE_PERCENTAGE = 15; // 0.15% fee
     uint256 public constant FEE_DENOMINATOR = 10000;
     address constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-    address private constant UNISWAP_V2_ROUTER = 0xd0F08FE0B691C6a7b280c8DD5C7bC6D44Ad35e35;
-    address userAddress = 0x2b754dEF498d4B6ADada538F01727Ddf67D91A7D;
+    address private constant AGGREGATOR_ADDRESS = 0xd0F08FE0B691C6a7b280c8DD5C7bC6D44Ad35e35; // 0.01% fee
 
     receive() external payable {}
 
@@ -24,6 +23,7 @@ contract PackDexWrapper is ReentrancyGuard {
         payable
         nonReentrant
     {
+        require(amount > 0, "Amount must be greater than zero");
         require(fromToken == ETH_ADDRESS, "Only ETH swaps");
         uint256 fee = (amount * FEE_PERCENTAGE) / FEE_DENOMINATOR;
 
@@ -33,7 +33,7 @@ contract PackDexWrapper is ReentrancyGuard {
         require(success, "Paying fee via transfer failed");
         emit FeeReceived(msg.sender, fee);
 
-        (bool successFlag,) = UNISWAP_V2_ROUTER.call{value: msg.value - fee}(swapData);
+        (bool successFlag,) = AGGREGATOR_ADDRESS.call{value: msg.value - fee}(swapData);
         require(successFlag, "Swapping ETH into tokens failed");
     }
 
@@ -41,14 +41,22 @@ contract PackDexWrapper is ReentrancyGuard {
         external
         nonReentrant
     {
+        require(amount > 0, "Amount must be greater than zero");
         uint256 fee = (amount * FEE_PERCENTAGE) / FEE_DENOMINATOR;
-        require(IERC20(fromToken).transferFrom(msg.sender, address(this), amount + fee), "Insufficient balance");
-        require(IERC20(fromToken).approve(UNISWAP_V2_ROUTER, type(uint256).max), "Approve transfer to swap failed");
+        uint256 totalAmount = amount + fee;
+        require(IERC20(fromToken).transferFrom(msg.sender, address(this), totalAmount), "Insufficient balance");
 
         // Pay fee before swapping.
         require(IERC20(fromToken).transfer(owner, fee), "Paying fee via transfer failed");
 
-        (bool successFlag,) = UNISWAP_V2_ROUTER.call(swapData);
+        // Check allowance to avoid repetitive approvals
+        uint256 allowance = IERC20(fromToken).allowance(address(this), AGGREGATOR_ADDRESS);
+        if (allowance < amount) {
+            // Approve the maximum token amount if the allowance is insufficient
+            IERC20(fromToken).approve(AGGREGATOR_ADDRESS, type(uint256).max);
+        }
+
+        (bool successFlag,) = AGGREGATOR_ADDRESS.call(swapData);
         require(successFlag, "Swapping tokens into tokens failed");
     }
 
