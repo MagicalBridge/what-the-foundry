@@ -11,15 +11,15 @@ contract InviteContract {
     IERC20 public BSC_HTXToken;
 
     uint256 public constant DEPOSIT_AMOUNT = 100 * 1e18; // 100 USDT
-    uint256 public constant DIRECT_REWARD_AMOUNT = 38 * 1e18; // 38 USDT 直接奖励
-    uint256 public constant teamRewardPercent = 32; // 32 USDT 团队奖励
-    uint256 public constant indirectRewardPercent = 2; // 间接奖励百分比 (2%)
+    uint256 public constant DIRECT_REWARD_AMOUNT = 38 * 1e18; // 38 USDT
+    // uint256 public constant teamRewardPercent = 32; // 32 USDT
+    uint256 public constant INDIRECT_REWARD_AMOUNT = 2 * 1e18; //  2usdt
 
     mapping(address => User) users;
-    // mapping(address => bool) public hasDeposited;
-    // mapping(address => bool) public hasBound;
 
     event UserBound(address indexed user, address indexed referrer);
+    event Deposit(address indexed user, uint256 amount);
+    event RewardPaid(address indexed user, uint256 amount);
 
     struct User {
         address referrer;
@@ -64,10 +64,33 @@ contract InviteContract {
 
         users[msg.sender].hasDeposited = true;
 
-        // get current user referrer
-        address referrer = users[msg.sender].referrer;
+        emit Deposit(msg.sender, DEPOSIT_AMOUNT);
 
-        // Transfer 38 USDT directly to referrer
-        require(BSC_UsdtToken.transfer(referrer, DIRECT_REWARD_AMOUNT), "Transfer to referrer failed");
+        address current = users[msg.sender].referrer;
+
+        uint256 level = 1;
+
+        while (current != address(0) && level <= 17) {
+            uint256 rewardAmount = 0;
+            uint256 directReferrals = users[current].referrals.length;
+
+            if (level == 1) {
+                // Direct referrer gets 38 USDT
+                rewardAmount = DIRECT_REWARD_AMOUNT;
+            } else if (
+                (directReferrals >= 1 && level <= 3) || (directReferrals >= 2 && level <= 6)
+                    || (directReferrals >= 3 && level <= 17)
+            ) {
+                rewardAmount = INDIRECT_REWARD_AMOUNT; // 2 USDT for upper levels
+            }
+
+            if (rewardAmount > 0) {
+                require(BSC_UsdtToken.transfer(current, rewardAmount), "Reward transfer failed");
+                emit RewardPaid(current, rewardAmount);
+            }
+
+            current = users[current].referrer;
+            level++;
+        }
     }
 }
