@@ -18,6 +18,12 @@ interface IERC20 {
         uint256 amount
     ) external returns (bool);
 
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) external returns (bool);
+
     function balanceOf(address account) external view returns (uint256);
 }
 
@@ -111,14 +117,39 @@ contract DailyDividend {
         _;
     }
 
+    // 查询合约中的 CAKE 代币余额
+    function getCakeBalance() public view returns (uint256) {
+        return cakeToken.balanceOf(address(this));
+    }
+
+    // 给合约转入 CAKE 代币
+    function depositCake(uint256 amount) external {
+        require(amount > 0, "Amount must be greater than 0");
+
+        // 转移 CAKE 到合约
+        require(
+            cakeToken.transferFrom(msg.sender, address(this), amount),
+            "Deposit failed"
+        );
+
+        // emit CakeDeposited(msg.sender, amount);
+    }
+
+    // 给某个地址转 CAKE
     function transferCake(address toAddress, uint amount) external onlyOwner {
         require(toAddress != address(0), "Invalid recipient address");
         require(amount > 0, "Amount must be greater than 0");
 
+        uint256 contractBalance = cakeToken.balanceOf(address(this));
+        require(
+            contractBalance >= amount,
+            "Insufficient CAKE balance in contract"
+        );
+
         // 将 CAKE 代币转移到指定的地址
         require(cakeToken.transfer(toAddress, amount), "Transfer failed");
 
-        emit Claimed(toAddress, amount);
+        // emit CakeTransferred(toAddress, amount);
     }
 
     // 合约接受 BNB
