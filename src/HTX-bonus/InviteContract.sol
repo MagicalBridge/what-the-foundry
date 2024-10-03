@@ -55,7 +55,8 @@ contract InviteContract {
     function deposit(uint256 amount) external {
         require(users[msg.sender].isBound, "Must be bound to a referrer");
         require(amount == DEPOSIT_AMOUNT, "Deposit amount must be equal to 100 USDT");
-        require(!users[msg.sender].hasDeposited, "Already deposited");
+        // TODO: 允许多次投注, 如果该用户从来没有投注，或者他的推荐总收益已经大于500USDT, 允许他再次投注, 每次投注为100USDT
+        // require(!users[msg.sender].hasDeposited, "Already deposited");
 
         // Transfer 100 USDT from user to contract
         require(BSC_USDT_Token.transferFrom(msg.sender, address(this), DEPOSIT_AMOUNT), "Transfer failed");
