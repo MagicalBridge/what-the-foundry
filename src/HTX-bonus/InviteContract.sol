@@ -13,12 +13,14 @@ contract InviteContract {
     uint256 public constant DEPOSIT_AMOUNT = 100 * 1e18; // 100 USDT
     uint256 public constant DIRECT_REWARD_AMOUNT = 38 * 1e18; // 38 USDT
     uint256 public constant INDIRECT_REWARD_AMOUNT = 2 * 1e18; //  2 USDT
+    uint256 public constant MAX_TOTAL_REWARD = 500 * 1e18; // 500 USDT
 
     mapping(address => User) users;
 
     event UserBound(address indexed user, address indexed referrer);
     event Deposit(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, uint256 amount);
+    event RewardTransferFailed(address indexed user, uint256 amount);
 
     struct User {
         address referrer;
@@ -52,7 +54,6 @@ contract InviteContract {
 
     function deposit(uint256 amount) external {
         require(users[msg.sender].isBound, "Must be bound to a referrer");
-        // 暂时按照只能投入1次计算，后续优化可以支持多次投注
         require(amount == DEPOSIT_AMOUNT, "Deposit amount must be equal to 100 USDT");
         require(!users[msg.sender].hasDeposited, "Already deposited");
 
@@ -65,7 +66,7 @@ contract InviteContract {
 
         address current = users[msg.sender].referrer;
 
-        uint256 level = 1;
+        uint8 level = 1;
 
         while (current != address(0) && level <= 17) {
             uint256 rewardAmount = 0;
@@ -74,19 +75,32 @@ contract InviteContract {
             if (level == 1) {
                 // Direct referrer gets 38 USDT
                 rewardAmount = DIRECT_REWARD_AMOUNT;
-                users[current].directReward += rewardAmount;
             } else if (
                 (directReferrals >= 1 && level <= 3) || (directReferrals >= 2 && level <= 6)
                     || (directReferrals >= 3 && level <= 17)
             ) {
-                rewardAmount = INDIRECT_REWARD_AMOUNT; // 2 USDT for upper levels
-                users[current].indirectReward += rewardAmount;
+                // 2 USDT for upper levels
+                rewardAmount = INDIRECT_REWARD_AMOUNT;
             }
 
             if (rewardAmount > 0) {
-                require(BSC_USDT_Token.transfer(current, rewardAmount), "Reward transfer failed");
-                users[current].totalReward += rewardAmount;
-                emit RewardPaid(current, rewardAmount);
+                uint256 maxAdditionalReward = MAX_TOTAL_REWARD - users[current].totalReward;
+
+                if (maxAdditionalReward > 0) {
+                    uint256 actualReward = (rewardAmount > maxAdditionalReward) ? maxAdditionalReward : rewardAmount;
+
+                    if (BSC_USDT_Token.transfer(current, actualReward)) {
+                        if (level == 1) {
+                            users[current].directReward += actualReward;
+                        } else {
+                            users[current].indirectReward += actualReward;
+                        }
+                        users[current].totalReward += actualReward;
+                        emit RewardPaid(current, actualReward);
+                    } else {
+                        emit RewardTransferFailed(current, actualReward);
+                    }
+                }
             }
 
             current = users[current].referrer;
