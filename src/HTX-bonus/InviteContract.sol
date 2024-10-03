@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -7,13 +7,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract InviteContract {
     address public owner;
-    IERC20 public BSC_UsdtToken;
-    IERC20 public BSC_HTXToken;
+    IERC20 public BSC_USDT_Token;
+    IERC20 public BSC_HTX_Token;
 
     uint256 public constant DEPOSIT_AMOUNT = 100 * 1e18; // 100 USDT
     uint256 public constant DIRECT_REWARD_AMOUNT = 38 * 1e18; // 38 USDT
-    // uint256 public constant teamRewardPercent = 32; // 32 USDT
-    uint256 public constant INDIRECT_REWARD_AMOUNT = 2 * 1e18; //  2usdt
+    uint256 public constant INDIRECT_REWARD_AMOUNT = 2 * 1e18; //  2 USDT
 
     mapping(address => User) users;
 
@@ -24,10 +23,9 @@ contract InviteContract {
     struct User {
         address referrer;
         address[] referrals;
-        uint256 deposit;
         uint256 level;
         uint256 directReward;
-        uint256 teamReward;
+        uint256 indirectReward;
         uint256 totalReward;
         bool isBound;
         bool hasDeposited;
@@ -35,15 +33,14 @@ contract InviteContract {
 
     constructor(address _usdtToken, address _htxToken) {
         owner = msg.sender;
-        BSC_UsdtToken = IERC20(_usdtToken);
-        BSC_HTXToken = IERC20(_htxToken);
+        BSC_USDT_Token = IERC20(_usdtToken);
+        BSC_HTX_Token = IERC20(_htxToken);
     }
 
     function bindUser(address _referrer) external {
         require(_referrer != address(0), "Cannot bind a referrer that is the zero address");
         require(_referrer != msg.sender, "Cannot refer yourself");
         require(!users[msg.sender].isBound, "Already bound to a referrer");
-        // require(users[_referrer].isBound || _referrer == owner(), "Referrer must be bound or owner");
 
         users[msg.sender].referrer = _referrer;
         users[msg.sender].isBound = true;
@@ -60,7 +57,7 @@ contract InviteContract {
         require(!users[msg.sender].hasDeposited, "Already deposited");
 
         // Transfer 100 USDT from user to contract
-        require(BSC_UsdtToken.transferFrom(msg.sender, address(this), DEPOSIT_AMOUNT), "Transfer failed");
+        require(BSC_USDT_Token.transferFrom(msg.sender, address(this), DEPOSIT_AMOUNT), "Transfer failed");
 
         users[msg.sender].hasDeposited = true;
 
@@ -77,15 +74,18 @@ contract InviteContract {
             if (level == 1) {
                 // Direct referrer gets 38 USDT
                 rewardAmount = DIRECT_REWARD_AMOUNT;
+                users[current].directReward += rewardAmount;
             } else if (
                 (directReferrals >= 1 && level <= 3) || (directReferrals >= 2 && level <= 6)
                     || (directReferrals >= 3 && level <= 17)
             ) {
                 rewardAmount = INDIRECT_REWARD_AMOUNT; // 2 USDT for upper levels
+                users[current].indirectReward += rewardAmount;
             }
 
             if (rewardAmount > 0) {
-                require(BSC_UsdtToken.transfer(current, rewardAmount), "Reward transfer failed");
+                require(BSC_USDT_Token.transfer(current, rewardAmount), "Reward transfer failed");
+                users[current].totalReward += rewardAmount;
                 emit RewardPaid(current, rewardAmount);
             }
 
