@@ -13,7 +13,7 @@ contract InviteContract is Ownable, ReentrancyGuard {
     uint256 public constant DIRECT_REWARD_AMOUNT = 38 * 1e18; // 入金的用户，其直接推荐他的上级获得 38 USDT
     uint256 public constant INDIRECT_REWARD_AMOUNT = 2 * 1e18; // 上级的上级, 获取的推荐奖励为 2 USDT
     uint256 public constant MAX_TOTAL_REWARD_PER_DEPOSIT = 500 * 1e18; // 单次投注，用户总收益上限为500 USDT
-    uint256 public one_time_dividend = 7000000 * 1e18; // 用户首次入金, 享受700万的HTX分红
+    uint256 public one_time_dividend; // 用户入金HTX分红
     mapping(address => User) users;
 
     struct User {
@@ -52,6 +52,9 @@ contract InviteContract is Ownable, ReentrancyGuard {
         // 用户需要通过绑定操作来绑定上级用户, 且只允许绑定一次, 否则不能进行入金操作
         require(users[msg.sender].isBound, "Must be bound to a referrer");
         require(amount == DEPOSIT_AMOUNT, "Deposit amount must be equal to 100 USDT");
+
+        // TODO 关于第二次、第三次入金的限制问题，需要单独处理一下
+
         // 增加投注次数
         users[msg.sender].depositCount++;
 
@@ -61,6 +64,12 @@ contract InviteContract is Ownable, ReentrancyGuard {
         users[msg.sender].hasDeposited = true;
 
         emit Deposit(msg.sender, DEPOSIT_AMOUNT, users[msg.sender].depositCount);
+
+        // 用户成功入金100usdt, 直接给用户打 one_time_dividend 数量的HTX Token
+        require(
+            BSC_HTX_Token.transferFrom(address(this), msg.sender, one_time_dividend),
+            "One time dividend transfer failed"
+        );
 
         address current = users[msg.sender].referrer;
 
