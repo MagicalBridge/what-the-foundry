@@ -13,6 +13,7 @@ contract InviteContract is Ownable, ReentrancyGuard {
     uint256 public constant DIRECT_REWARD_AMOUNT = 38 * 1e18; // 入金的用户，其直接推荐他的上级获得 38 USDT
     uint256 public constant INDIRECT_REWARD_AMOUNT = 2 * 1e18; // 上级的上级, 获取的推荐奖励为 2 USDT
     uint256 public constant MAX_TOTAL_REWARD_PER_DEPOSIT = 500 * 1e18; // 单次投注，用户总收益上限为500 USDT
+    uint256 public one_time_dividend = 7000000 * 1e18; // 用户首次入金, 享受700万的HTX分红
     mapping(address => User) users;
 
     event UserBound(address indexed user, address indexed referrer);
@@ -31,9 +32,10 @@ contract InviteContract is Ownable, ReentrancyGuard {
         uint8 depositCount; // 投注次数
     }
 
-    constructor(address _usdtToken, address _htxToken) Ownable(msg.sender) {
+    constructor(address _usdtToken, address _htxToken, uint256 _one_time_dividend) Ownable(msg.sender) {
         BSC_USDT_Token = IERC20(_usdtToken);
         BSC_HTX_Token = IERC20(_htxToken);
+        one_time_dividend = _one_time_dividend;
     }
 
     function bindUser(address _referrer) external nonReentrant {
@@ -113,5 +115,9 @@ contract InviteContract is Ownable, ReentrancyGuard {
             current = users[current].referrer;
             level++;
         }
+    }
+
+    function setOneTimeDividend(uint256 _amount) external onlyOwner {
+        one_time_dividend = _amount * 1e18;
     }
 }
