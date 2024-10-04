@@ -16,11 +16,6 @@ contract InviteContract is Ownable, ReentrancyGuard {
     uint256 public one_time_dividend = 7000000 * 1e18; // 用户首次入金, 享受700万的HTX分红
     mapping(address => User) users;
 
-    event UserBound(address indexed user, address indexed referrer);
-    event Deposit(address indexed user, uint256 amount, uint256 depositCount);
-    event RewardPaid(address indexed user, uint256 amount);
-    event RewardTransferFailed(address indexed user, uint256 amount);
-
     struct User {
         address referrer; // 用户的推荐人，即推荐他的上级用户
         address[] referrals; // 用户所推荐的下级, 这是直接推荐的, 不含所有间接推荐用户
@@ -117,7 +112,16 @@ contract InviteContract is Ownable, ReentrancyGuard {
         }
     }
 
+    function claimDividends() external {
+        // TODO 用户主动来提取他的分红奖励
+    }
+
     function setOneTimeDividend(uint256 _amount) external onlyOwner {
         one_time_dividend = _amount * 1e18;
     }
+
+    event UserBound(address indexed user, address indexed referrer);
+    event Deposit(address indexed user, uint256 amount, uint256 depositCount);
+    event RewardPaid(address indexed user, uint256 amount);
+    event RewardTransferFailed(address indexed user, uint256 amount);
 }
