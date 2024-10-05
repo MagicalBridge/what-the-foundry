@@ -218,6 +218,65 @@ contract InviteContract is Ownable, ReentrancyGuard {
         dividend_amount_per_second = _amount;
     }
 
+    // 获取用户的当前最大总收益上限
+    function getCurrentMaxTotalReward(address user) external view returns (uint256) {
+        return users[user].depositCount * MAX_TOTAL_REWARD_PER_DEPOSIT;
+    }
+
+    // 获取用户的推荐人地址
+    function getReferrer(address user) external view returns (address) {
+        return users[user].referrer;
+    }
+
+    // 获取用户的直接推荐人数量
+    function getDirectReferralsCount(address user) external view returns (uint256) {
+        return users[user].referrals.length;
+    }
+
+    // 获取用户的直接推荐列表
+    function getDirectReferrals(address user) external view returns (address[] memory) {
+        return users[user].referrals;
+    }
+
+    // 获取用户的直接推荐奖励总额
+    function getDirectReward(address user) external view returns (uint256) {
+        return users[user].directReward;
+    }
+
+    // 获取用户的间接推荐奖励总额
+    function getIndirectReward(address user) external view returns (uint256) {
+        return users[user].indirectReward;
+    }
+
+    // 获取用户的总推荐奖励
+    function getTotalReward(address user) external view returns (uint256) {
+        return users[user].totalReward;
+    }
+
+    // 检查用户是否已绑定推荐人
+    function isBound(address user) external view returns (bool) {
+        return users[user].isBound;
+    }
+
+    // 检查用户是否已经有过投注
+    function hasDeposited(address user) external view returns (bool) {
+        return users[user].hasDeposited;
+    }
+
+    // 获取用户的投注次数
+    function getDepositCount(address user) external view returns (uint256) {
+        return users[user].depositCount;
+    }
+
+    // 获取用户的剩余可获得奖励额度
+    function getRemainingRewardCapacity(address user) external view returns (uint256) {
+        uint256 currentMaxTotalReward = users[user].depositCount * MAX_TOTAL_REWARD_PER_DEPOSIT;
+        if (currentMaxTotalReward > users[user].totalReward) {
+            return currentMaxTotalReward - users[user].totalReward;
+        }
+        return 0;
+    }
+
     event UserBound(address indexed user, address indexed referrer);
     event Deposit(address indexed user, uint256 amount, uint256 depositCount);
     event RewardPaid(address indexed user, uint256 amount);
