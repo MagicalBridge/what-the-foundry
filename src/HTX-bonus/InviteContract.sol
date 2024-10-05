@@ -14,6 +14,8 @@ contract InviteContract is Ownable, ReentrancyGuard {
     uint256 public constant INDIRECT_REWARD_AMOUNT = 2 * 1e18; // 上级的上级, 获取的推荐奖励为 2 USDT
     uint256 public constant MAX_TOTAL_REWARD_PER_DEPOSIT = 500 * 1e18; // 单次投注，用户总收益上限为500 USDT
     uint256 public one_time_dividend; // 用户入金HTX分红
+    uint256 public dividend_amount_per_second; // 分红的速率，表示是已经入金的用户每秒的HTX代币的分红金额，是个币本位的数字，根据用户入金的时间算起动态更新
+
     mapping(address => User) users;
 
     struct User {
@@ -25,12 +27,17 @@ contract InviteContract is Ownable, ReentrancyGuard {
         bool isBound; // 是否与上级绑过, 同一个地址只允许与一位用户绑定, 作为他/她的上级
         bool hasDeposited; // 是否有过投注行为, 是否已入金
         uint8 depositCount; // 投注次数
+        uint256 lastUpdateTime; // 最后一次更新分红时间戳
+        uint256 unclaimedDividends; // 还没有提取的分红金额
     }
 
-    constructor(address _usdtToken, address _htxToken, uint256 _one_time_dividend) Ownable(msg.sender) {
+    constructor(address _usdtToken, address _htxToken, uint256 _one_time_dividend, uint256 _dividend_amount_per_second)
+        Ownable(msg.sender)
+    {
         BSC_USDT_Token = IERC20(_usdtToken);
         BSC_HTX_Token = IERC20(_htxToken);
         one_time_dividend = _one_time_dividend;
+        dividend_amount_per_second = _dividend_amount_per_second;
     }
 
     function bindUser(address _referrer) external nonReentrant {
@@ -53,8 +60,6 @@ contract InviteContract is Ownable, ReentrancyGuard {
         require(users[msg.sender].isBound, "Must be bound to a referrer");
         require(amount == DEPOSIT_AMOUNT, "Deposit amount must be equal to 100 USDT");
 
-        // TODO 关于第二次、第三次入金的限制问题，需要单独处理一下
-
         // 增加投注次数
         users[msg.sender].depositCount++;
 
@@ -62,6 +67,13 @@ contract InviteContract is Ownable, ReentrancyGuard {
         require(BSC_USDT_Token.transferFrom(msg.sender, address(this), DEPOSIT_AMOUNT), "Transfer failed");
 
         users[msg.sender].hasDeposited = true;
+
+        // Initialize or update the last update time for dividends
+        if (users[msg.sender].lastUpdateTime == 0) {
+            users[msg.sender].lastUpdateTime = block.timestamp;
+        } else {
+            updateUnclaimedDividends(msg.sender);
+        }
 
         emit Deposit(msg.sender, DEPOSIT_AMOUNT, users[msg.sender].depositCount);
 
@@ -71,8 +83,11 @@ contract InviteContract is Ownable, ReentrancyGuard {
             "One time dividend transfer failed"
         );
 
-        address current = users[msg.sender].referrer;
+        distributeBonuses(msg.sender);
+    }
 
+    function distributeBonuses(address _user) internal {
+        address current = users[_user].referrer;
         uint8 level = 1;
 
         while (current != address(0) && level <= 17) {
@@ -80,21 +95,16 @@ contract InviteContract is Ownable, ReentrancyGuard {
             uint256 directReferrals = users[current].referrals.length;
 
             if (level == 1) {
-                // Direct referrer gets 38 USDT
                 rewardAmount = DIRECT_REWARD_AMOUNT;
             } else if (
                 (directReferrals >= 1 && level <= 3) || (directReferrals >= 2 && level <= 6)
                     || (directReferrals >= 3 && level <= 17)
             ) {
-                // 2 USDT for upper levels
                 rewardAmount = INDIRECT_REWARD_AMOUNT;
             }
 
             if (rewardAmount > 0) {
-                // 计算当前投注的最大总收益上限
                 uint256 currentMaxTotalReward = users[current].depositCount * MAX_TOTAL_REWARD_PER_DEPOSIT;
-
-                // 计算还可以获得的最大奖励金额
                 uint256 maxAdditionalReward = currentMaxTotalReward > users[current].totalReward
                     ? currentMaxTotalReward - users[current].totalReward
                     : 0;
@@ -121,16 +131,47 @@ contract InviteContract is Ownable, ReentrancyGuard {
         }
     }
 
-    function claimDividends() external {
-        // TODO 用户主动来提取他的分红奖励
+    function updateUnclaimedDividends(address _user) internal {
+        uint256 timePassed = block.timestamp - users[_user].lastUpdateTime;
+        uint256 newDividends = timePassed * dividend_amount_per_second;
+        users[_user].unclaimedDividends += newDividends;
+        users[_user].lastUpdateTime = block.timestamp;
+    }
+
+    function claimDividends() external nonReentrant {
+        require(users[msg.sender].hasDeposited, "User has not deposited");
+        updateUnclaimedDividends(msg.sender);
+
+        uint256 amountToClaim = users[msg.sender].unclaimedDividends;
+        require(amountToClaim > 0, "No dividends to claim");
+
+        // 一次性地将分红转给用户，避免多次转给单个用户，提高效率
+        users[msg.sender].unclaimedDividends = 0;
+
+        require(BSC_HTX_Token.transferFrom(address(this), msg.sender, amountToClaim), "Dividend transfer failed");
+
+        emit DividendsClaimed(msg.sender, amountToClaim);
+    }
+
+    function getUnclaimedDividends(address _user) public view returns (uint256) {
+        if (!users[_user].hasDeposited) {
+            return 0;
+        }
+        uint256 timePassed = block.timestamp - users[_user].lastUpdateTime;
+        return users[_user].unclaimedDividends + (timePassed * dividend_amount_per_second);
     }
 
     function setOneTimeDividend(uint256 _amount) external onlyOwner {
         one_time_dividend = _amount * 1e18;
     }
 
+    function setDividendAmountPerSecond(uint256 _amount) external onlyOwner {
+        dividend_amount_per_second = _amount;
+    }
+
     event UserBound(address indexed user, address indexed referrer);
     event Deposit(address indexed user, uint256 amount, uint256 depositCount);
     event RewardPaid(address indexed user, uint256 amount);
     event RewardTransferFailed(address indexed user, uint256 amount);
+    event DividendsClaimed(address indexed user, uint256 amount);
 }
