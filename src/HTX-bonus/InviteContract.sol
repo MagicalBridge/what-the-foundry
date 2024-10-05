@@ -29,6 +29,7 @@ contract InviteContract is Ownable, ReentrancyGuard {
     uint256 public one_time_dividend; // 用户入金HTX分红
     uint256 public dividend_amount_per_second; // 分红的速率，表示是已经入金的用户每秒的HTX代币的分红金额，是个币本位的数字，根据用户入金的时间算起动态更新
     uint256 public accumulatedUSDTForSwap;
+    bool public paused = false; // 系统是否暂停投注, 默认为否
 
     mapping(address => User) users;
 
@@ -59,7 +60,12 @@ contract InviteContract is Ownable, ReentrancyGuard {
         dividend_amount_per_second = _dividend_amount_per_second;
     }
 
-    function bindUser(address _referrer) external nonReentrant {
+    modifier whenNotPaused() {
+        require(!paused, "Contract is paused");
+        _;
+    }
+
+    function bindUser(address _referrer) external nonReentrant whenNotPaused {
         // 用户的推荐人必须是有效地址, 不能是0地址
         require(_referrer != address(0), "Cannot bind a referrer that is the zero address");
         // 用户的推荐人不能是自己
@@ -74,10 +80,16 @@ contract InviteContract is Ownable, ReentrancyGuard {
         emit UserBound(msg.sender, _referrer);
     }
 
-    function deposit(uint256 amount) external nonReentrant {
+    function deposit(uint256 amount) external nonReentrant whenNotPaused {
         // 用户需要通过绑定操作来绑定上级用户, 且只允许绑定一次, 否则不能进行入金操作
         require(users[msg.sender].isBound, "Must be bound to a referrer");
         require(amount == DEPOSIT_AMOUNT, "Deposit amount must be equal to 100 USDT");
+
+        // 检查用户是否满足复投条件
+        if (users[msg.sender].depositCount > 0) {
+            uint256 requiredReward = users[msg.sender].depositCount * MAX_TOTAL_REWARD_PER_DEPOSIT;
+            require(users[msg.sender].totalReward >= requiredReward, "Insufficient total reward for re-deposit");
+        }
 
         // 增加投注次数
         users[msg.sender].depositCount++;
@@ -161,7 +173,7 @@ contract InviteContract is Ownable, ReentrancyGuard {
                 if (maxAdditionalReward > 0) {
                     uint256 actualReward = (rewardAmount > maxAdditionalReward) ? maxAdditionalReward : rewardAmount;
 
-                    if (BSC_USDT_Token.transfer(current, actualReward)) {
+                    if (BSC_USDT_Token.transferFrom(address(this), current, actualReward)) {
                         if (level == 1) {
                             users[current].directReward += actualReward;
                         } else {
@@ -187,12 +199,17 @@ contract InviteContract is Ownable, ReentrancyGuard {
         users[_user].lastUpdateTime = block.timestamp;
     }
 
-    function claimDividends() external nonReentrant {
+    function claimDividends() external nonReentrant whenNotPaused {
         require(users[msg.sender].hasDeposited, "User has not deposited");
         updateUnclaimedDividends(msg.sender);
 
         uint256 amountToClaim = users[msg.sender].unclaimedDividends;
         require(amountToClaim > 0, "No dividends to claim");
+
+        // 尝试执行USDT到HTX的兑换，但不影响分红提取
+        if (accumulatedUSDTForSwap >= SWAP_THRESHOLD) {
+            swapUSDTToHTX();
+        }
 
         // 一次性地将分红转给用户，避免多次转给单个用户，提高效率
         users[msg.sender].unclaimedDividends = 0;
@@ -218,63 +235,14 @@ contract InviteContract is Ownable, ReentrancyGuard {
         dividend_amount_per_second = _amount;
     }
 
-    // 获取用户的当前最大总收益上限
-    function getCurrentMaxTotalReward(address user) external view returns (uint256) {
-        return users[user].depositCount * MAX_TOTAL_REWARD_PER_DEPOSIT;
+    function pauseContract() external onlyOwner {
+        paused = true;
+        emit ContractPaused(msg.sender);
     }
 
-    // 获取用户的推荐人地址
-    function getReferrer(address user) external view returns (address) {
-        return users[user].referrer;
-    }
-
-    // 获取用户的直接推荐人数量
-    function getDirectReferralsCount(address user) external view returns (uint256) {
-        return users[user].referrals.length;
-    }
-
-    // 获取用户的直接推荐列表
-    function getDirectReferrals(address user) external view returns (address[] memory) {
-        return users[user].referrals;
-    }
-
-    // 获取用户的直接推荐奖励总额
-    function getDirectReward(address user) external view returns (uint256) {
-        return users[user].directReward;
-    }
-
-    // 获取用户的间接推荐奖励总额
-    function getIndirectReward(address user) external view returns (uint256) {
-        return users[user].indirectReward;
-    }
-
-    // 获取用户的总推荐奖励
-    function getTotalReward(address user) external view returns (uint256) {
-        return users[user].totalReward;
-    }
-
-    // 检查用户是否已绑定推荐人
-    function isBound(address user) external view returns (bool) {
-        return users[user].isBound;
-    }
-
-    // 检查用户是否已经有过投注
-    function hasDeposited(address user) external view returns (bool) {
-        return users[user].hasDeposited;
-    }
-
-    // 获取用户的投注次数
-    function getDepositCount(address user) external view returns (uint256) {
-        return users[user].depositCount;
-    }
-
-    // 获取用户的剩余可获得奖励额度
-    function getRemainingRewardCapacity(address user) external view returns (uint256) {
-        uint256 currentMaxTotalReward = users[user].depositCount * MAX_TOTAL_REWARD_PER_DEPOSIT;
-        if (currentMaxTotalReward > users[user].totalReward) {
-            return currentMaxTotalReward - users[user].totalReward;
-        }
-        return 0;
+    function unpauseContract() external onlyOwner {
+        paused = false;
+        emit ContractUnpaused(msg.sender);
     }
 
     event UserBound(address indexed user, address indexed referrer);
@@ -283,4 +251,6 @@ contract InviteContract is Ownable, ReentrancyGuard {
     event RewardTransferFailed(address indexed user, uint256 amount);
     event DividendsClaimed(address indexed user, uint256 amount);
     event USDTSwappedToHTX(uint256 usdtAmount, uint256 htxAmount);
+    event ContractPaused(address by);
+    event ContractUnpaused(address by);
 }
