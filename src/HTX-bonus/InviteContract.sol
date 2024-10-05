@@ -14,6 +14,8 @@ contract InviteContract is Ownable, ReentrancyGuard {
     uint256 public constant INDIRECT_REWARD_AMOUNT = 2 * 1e18; // 上级的上级, 获取的推荐奖励为 2 USDT
     uint256 public constant MAX_TOTAL_REWARD_PER_DEPOSIT = 500 * 1e18; // 单次投注，用户总收益上限为500 USDT
     uint256 public one_time_dividend; // 用户入金HTX分红
+    uint256 public dividend_amount_per_second; // 分红的速率，表示是已经入金的用户每秒的HTX代币的分红金额，是个币本位的数字，根据用户入金的时间算起动态更新
+
     mapping(address => User) users;
 
     struct User {
@@ -27,10 +29,13 @@ contract InviteContract is Ownable, ReentrancyGuard {
         uint8 depositCount; // 投注次数
     }
 
-    constructor(address _usdtToken, address _htxToken, uint256 _one_time_dividend) Ownable(msg.sender) {
+    constructor(address _usdtToken, address _htxToken, uint256 _one_time_dividend, uint256 _dividend_amount_per_second)
+        Ownable(msg.sender)
+    {
         BSC_USDT_Token = IERC20(_usdtToken);
         BSC_HTX_Token = IERC20(_htxToken);
         one_time_dividend = _one_time_dividend;
+        dividend_amount_per_second = _dividend_amount_per_second;
     }
 
     function bindUser(address _referrer) external nonReentrant {
@@ -52,8 +57,6 @@ contract InviteContract is Ownable, ReentrancyGuard {
         // 用户需要通过绑定操作来绑定上级用户, 且只允许绑定一次, 否则不能进行入金操作
         require(users[msg.sender].isBound, "Must be bound to a referrer");
         require(amount == DEPOSIT_AMOUNT, "Deposit amount must be equal to 100 USDT");
-
-        // TODO 关于第二次、第三次入金的限制问题，需要单独处理一下
 
         // 增加投注次数
         users[msg.sender].depositCount++;
@@ -127,6 +130,10 @@ contract InviteContract is Ownable, ReentrancyGuard {
 
     function setOneTimeDividend(uint256 _amount) external onlyOwner {
         one_time_dividend = _amount * 1e18;
+    }
+
+    function setDividendAmountPerSecond(uint256 _amount) external onlyOwner {
+        dividend_amount_per_second = _amount;
     }
 
     event UserBound(address indexed user, address indexed referrer);
