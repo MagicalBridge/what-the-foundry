@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -15,7 +15,7 @@ interface IDexRouter {
     ) external returns (uint256[] memory amounts);
 }
 
-contract InviteContract is Ownable, ReentrancyGuard {
+contract InviteAndDividend is Ownable, ReentrancyGuard {
     IERC20 public BSC_USDT_Token;
     IERC20 public BSC_HTX_Token;
     IDexRouter public dexRouter;
@@ -31,7 +31,7 @@ contract InviteContract is Ownable, ReentrancyGuard {
     uint256 public accumulatedUSDTForSwap;
     bool public paused = false; // 系统是否暂停投注, 默认为否
 
-    mapping(address => User) users;
+    mapping(address => User) public users;
 
     struct User {
         address referrer; // 用户的推荐人，即推荐他的上级用户
