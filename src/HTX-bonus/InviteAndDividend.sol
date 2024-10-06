@@ -13,11 +13,14 @@ interface IDexRouter {
         address to,
         uint256 deadline
     ) external returns (uint256[] memory amounts);
+
+    function getAmountsOut(uint256 amountIn, address[] memory path) external view returns (uint256[] memory amounts);
 }
 
 contract InviteAndDividend is Ownable, ReentrancyGuard {
-    IERC20 public BSC_USDT_Token;
-    IERC20 public BSC_HTX_Token;
+    IERC20 public BSC_USDT_Token; // 0x55d398326f99059fF775485246999027B3197955
+    IERC20 public BSC_HTX_Token; // 0x61EC85aB89377db65762E234C946b5c25A56E99e
+    IERC20 public BSC_TXR_Token; // 0xCE7de646e7208a4Ef112cb6ed5038FA6cC6b12e3
     IDexRouter public dexRouter;
 
     uint256 public constant DEPOSIT_AMOUNT = 100 * 1e18; // 用户每次入金的金额是固定的, 为 100 USDT
@@ -26,6 +29,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
     uint256 public constant SWAP_USDT_TO_HTX_AMOUNT = 30 * 1e18; // 用户每入金100 USDT, 将其中的30 USDT通过 Dex 兑换成 HTX Token
     uint256 public constant SWAP_THRESHOLD = 300 * 1e18;
     uint256 public constant MAX_TOTAL_REWARD_PER_DEPOSIT = 500 * 1e18; // 单次投注，用户总收益上限为500 USDT
+    uint256 public constant EVERY_DAY_DIVIDEND = 11 * 1e17; // 每天分给用户的分红（以1.1 USDT代币数量计）
     uint256 public one_time_dividend; // 用户入金HTX分红
     uint256 public dividend_amount_per_second; // 分红的速率，表示是已经入金的用户每秒的HTX代币的分红金额，是个币本位的数字，根据用户入金的时间算起动态更新
     uint256 public accumulatedUSDTForSwap;
@@ -49,12 +53,14 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
     constructor(
         address _usdtToken,
         address _htxToken,
+        address _trxToken,
         address _dexRouter,
         uint256 _one_time_dividend,
         uint256 _dividend_amount_per_second
     ) Ownable(msg.sender) {
         BSC_USDT_Token = IERC20(_usdtToken);
         BSC_HTX_Token = IERC20(_htxToken);
+        BSC_TXR_Token = IERC20(_trxToken);
         dexRouter = IDexRouter(_dexRouter);
         one_time_dividend = _one_time_dividend;
         dividend_amount_per_second = _dividend_amount_per_second;
@@ -99,12 +105,8 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
 
         users[msg.sender].hasDeposited = true;
 
-        // Initialize or update the last update time for dividends
-        if (users[msg.sender].lastUpdateTime == 0) {
-            users[msg.sender].lastUpdateTime = block.timestamp;
-        } else {
-            updateUnclaimedDividends(msg.sender);
-        }
+        // 用户入金成功, 设置他的最后更新时间, 以便于计算分红
+        users[msg.sender].lastUpdateTime = getNextDayTimestamp();
 
         emit Deposit(msg.sender, DEPOSIT_AMOUNT, users[msg.sender].depositCount);
 
@@ -193,10 +195,32 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
     }
 
     function updateUnclaimedDividends(address _user) internal {
-        uint256 timePassed = block.timestamp - users[_user].lastUpdateTime;
-        uint256 newDividends = timePassed * dividend_amount_per_second;
-        users[_user].unclaimedDividends += newDividends;
-        users[_user].lastUpdateTime = block.timestamp;
+        User storage user = users[_user];
+        // 确保用户已经存款
+        require(user.hasDeposited, "User has not deposited");
+        uint256 currentTime = block.timestamp;
+        uint256 lastUpdate = user.lastUpdateTime;
+
+        // 如果最近更新时间大于当前时间戳, 跳过操作
+        if (lastUpdate >= currentTime) {
+            return;
+        }
+
+        // 计算从上次更新到现在经过的完整天数
+        uint256 daysPassed = (currentTime - lastUpdate) / 1 days;
+
+        // 如果经过的天数大于等于1，才开始计算分红
+        if (daysPassed >= 1) {
+            // 计算分红总额（每天1.1 USDT等值的HTX）
+            uint256 dailyDividend = EVERY_DAY_DIVIDEND; // 1.1 USDT in wei
+            uint256 totalDividend = dailyDividend * daysPassed;
+
+            // 将计算得到的分红添加到未领取分红中
+            user.unclaimedDividends += totalDividend;
+
+            // 更新最后更新时间，向前推进整天数
+            user.lastUpdateTime += daysPassed * 1 days;
+        }
     }
 
     function claimDividends() external nonReentrant whenNotPaused {
@@ -206,7 +230,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         uint256 amountToClaim = users[msg.sender].unclaimedDividends;
         require(amountToClaim > 0, "No dividends to claim");
 
-        // 尝试执行USDT到HTX的兑换，但不影响分红提取
+        // 尝试执行USDT到HTX的兑换
         if (accumulatedUSDTForSwap >= SWAP_THRESHOLD) {
             swapUSDTToHTX();
         }
@@ -214,17 +238,47 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         // 一次性地将分红转给用户，避免多次转给单个用户，提高效率
         users[msg.sender].unclaimedDividends = 0;
 
-        require(BSC_HTX_Token.transferFrom(address(this), msg.sender, amountToClaim), "Dividend transfer failed");
+        // 计算等值的HTX数量
+        address[] memory path = new address[](2);
+        path[0] = address(BSC_USDT_Token);
+        path[1] = address(BSC_HTX_Token);
 
-        emit DividendsClaimed(msg.sender, amountToClaim);
+        uint256[] memory amounts = dexRouter.getAmountsOut(amountToClaim, path);
+
+        uint256 htxAmount = amounts[1];
+
+        // 确保合约有足够的HTX余额
+        require(BSC_HTX_Token.balanceOf(address(this)) >= htxAmount, "Insufficient HTX balance in contract");
+
+        require(BSC_HTX_Token.transferFrom(address(this), msg.sender, htxAmount), "Dividend transfer failed");
+
+        emit DividendsClaimed(msg.sender, amountToClaim, htxAmount);
     }
 
     function getUnclaimedDividends(address _user) public view returns (uint256) {
-        if (!users[_user].hasDeposited) {
-            return 0;
+        User storage user = users[_user];
+        if (!user.hasDeposited || user.lastUpdateTime > block.timestamp) {
+            return user.unclaimedDividends;
         }
-        uint256 timePassed = block.timestamp - users[_user].lastUpdateTime;
-        return users[_user].unclaimedDividends + (timePassed * dividend_amount_per_second);
+
+        uint256 currentTime = block.timestamp;
+        uint256 lastUpdate = user.lastUpdateTime;
+        uint256 daysPassed = (currentTime - lastUpdate) / 1 days;
+
+        uint256 dailyDividend = EVERY_DAY_DIVIDEND; // 1.1 USDT in wei
+        uint256 additionalDividends = dailyDividend * daysPassed;
+
+        return user.unclaimedDividends + additionalDividends;
+    }
+
+    function getNextDayTimestamp() internal view returns (uint256) {
+        // 获取当前时间戳
+        uint256 currentTimestamp = block.timestamp;
+
+        // 计算下一天开始的时间戳
+        uint256 nextDayTimestamp = ((currentTimestamp / 1 days) + 1) * 1 days;
+
+        return nextDayTimestamp;
     }
 
     function setOneTimeDividend(uint256 _amount) external onlyOwner {
@@ -249,7 +303,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
     event Deposit(address indexed user, uint256 amount, uint256 depositCount);
     event RewardPaid(address indexed user, uint256 amount);
     event RewardTransferFailed(address indexed user, uint256 amount);
-    event DividendsClaimed(address indexed user, uint256 amount);
+    event DividendsClaimed(address indexed user, uint256 usdtAmount, uint256 amount);
     event USDTSwappedToHTX(uint256 usdtAmount, uint256 htxAmount);
     event ContractPaused(address by);
     event ContractUnpaused(address by);
