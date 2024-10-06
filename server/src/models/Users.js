@@ -3,9 +3,9 @@ const connectDB = require("../config/db");
 
 const tokenSchema = new mongoose.Schema({
   timestamp: { type: Date },
-  amount: { type: String },
+  referrer: { type: String },
   transactionHash: { type: String },
 });
 
-const Token = mongoose.model("WithdrawaRecords", tokenSchema);
+const Token = mongoose.model("Users", tokenSchema);
 module.exports = Token;
