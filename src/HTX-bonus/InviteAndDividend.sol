@@ -31,7 +31,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
     uint256 public constant MAX_TOTAL_REWARD_PER_DEPOSIT = 500 * 1e18; // 单次投注，用户总收益上限为500 USDT
     uint256 public constant EVERY_DAY_DIVIDEND = 11 * 1e17; // 每天分给用户的分红（以1.1 USDT代币数量计）
     uint256 public one_time_dividend; // 用户入金HTX分红
-    uint256 public dividend_amount_per_second; // 分红的速率，表示是已经入金的用户每秒的HTX代币的分红金额，是个币本位的数字，根据用户入金的时间算起动态更新
+    // uint256 public dividend_amount_per_second; // 分红的速率，表示是已经入金的用户每秒的HTX代币的分红金额，是个币本位的数字，根据用户入金的时间算起动态更新
     uint256 public accumulatedUSDTForSwap;
     bool public paused = false; // 系统是否暂停投注, 默认为否
 
@@ -55,15 +55,13 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         address _htxToken,
         address _trxToken,
         address _dexRouter,
-        uint256 _one_time_dividend,
-        uint256 _dividend_amount_per_second
+        uint256 _one_time_dividend
     ) Ownable(msg.sender) {
         BSC_USDT_Token = IERC20(_usdtToken);
         BSC_HTX_Token = IERC20(_htxToken);
         BSC_TXR_Token = IERC20(_trxToken);
         dexRouter = IDexRouter(_dexRouter);
         one_time_dividend = _one_time_dividend;
-        dividend_amount_per_second = _dividend_amount_per_second;
     }
 
     modifier whenNotPaused() {
@@ -106,25 +104,25 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         users[msg.sender].hasDeposited = true;
 
         // 用户入金成功, 设置他的最后更新时间, 以便于计算分红
-        users[msg.sender].lastUpdateTime = getNextDayTimestamp();
+        // users[msg.sender].lastUpdateTime = getNextDayTimestamp();
 
-        emit Deposit(msg.sender, DEPOSIT_AMOUNT, users[msg.sender].depositCount);
+        // emit Deposit(msg.sender, DEPOSIT_AMOUNT, users[msg.sender].depositCount);
 
         // 累加USDT用于兑换
-        accumulatedUSDTForSwap += SWAP_USDT_TO_HTX_AMOUNT;
+        // accumulatedUSDTForSwap += SWAP_USDT_TO_HTX_AMOUNT;
 
         // 检查是否达到兑换阈值
-        if (accumulatedUSDTForSwap >= SWAP_THRESHOLD) {
-            swapUSDTToHTX();
-        }
+        // if (accumulatedUSDTForSwap >= SWAP_THRESHOLD) {
+        //     swapUSDTToHTX();
+        // }
 
         // 用户成功入金100usdt, 直接给用户打 one_time_dividend 数量的HTX Token
-        require(
-            BSC_HTX_Token.transferFrom(address(this), msg.sender, one_time_dividend),
-            "One time dividend transfer failed"
-        );
+        // require(
+        //     BSC_HTX_Token.transferFrom(address(this), msg.sender, one_time_dividend),
+        //     "One time dividend transfer failed"
+        // );
 
-        distributeBonuses(msg.sender);
+        // distributeBonuses(msg.sender);
     }
 
     function swapUSDTToHTX() internal {
@@ -286,9 +284,9 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         one_time_dividend = _amount * 1e18;
     }
 
-    function setDividendAmountPerSecond(uint256 _amount) external onlyOwner {
-        dividend_amount_per_second = _amount;
-    }
+    // function setDividendAmountPerSecond(uint256 _amount) external onlyOwner {
+    //     dividend_amount_per_second = _amount;
+    // }
 
     function pauseContract() external onlyOwner {
         paused = true;
