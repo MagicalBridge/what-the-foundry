@@ -9,6 +9,7 @@ contract InviteAndDividendTest is Test {
     InviteAndDividend inviteAndDividend;
     IERC20 USDT;
     IERC20 HTX;
+    IERC20 TXR;
     address owner;
     address referrer;
     address user;
@@ -22,7 +23,8 @@ contract InviteAndDividendTest is Test {
         // 使用假USDT地址进行初始化，实际测试中可能需要使用ERC20模拟
         USDT = IERC20(address(0xABC));
         HTX = IERC20(address(0xDEF));
-        inviteAndDividend = new InviteAndDividend(address(USDT), address(HTX), address(0), 700, 1);
+        TXR = IERC20(address(0x012));
+        inviteAndDividend = new InviteAndDividend(address(USDT), address(HTX), address(TXR), address(0), 700, 1);
 
         // 设置交易的初始权限
         vm.startPrank(owner);

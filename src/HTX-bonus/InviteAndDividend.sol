@@ -130,9 +130,10 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
     function swapUSDTToHTX() internal {
         require(BSC_USDT_Token.approve(address(dexRouter), accumulatedUSDTForSwap), "Approval failed");
 
-        address[] memory path = new address[](2);
+        address[] memory path = new address[](3);
         path[0] = address(BSC_USDT_Token);
-        path[1] = address(BSC_HTX_Token);
+        path[0] = address(BSC_TXR_Token);
+        path[2] = address(BSC_HTX_Token);
 
         uint256 deadline = block.timestamp + 300; // 5 minutes
 
@@ -265,7 +266,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         uint256 lastUpdate = user.lastUpdateTime;
         uint256 daysPassed = (currentTime - lastUpdate) / 1 days;
 
-        uint256 dailyDividend = EVERY_DAY_DIVIDEND; // 1.1 USDT in wei
+        uint256 dailyDividend = EVERY_DAY_DIVIDEND;
         uint256 additionalDividends = dailyDividend * daysPassed;
 
         return user.unclaimedDividends + additionalDividends;
