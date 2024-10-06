@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OSS存储空间列表</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    .search-container {
+      margin-bottom: 20px;
+    }
+
+    input[type="text"] {
+      width: 300px;
+      padding: 8px;
+      font-size: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f2f2f2;
+    }
+
+    tr:hover {
+      background-color: #f5f5f5;
+    }
+  </style>
+</head>
+<body>
+  <div class="search-container">
+    <input type="text" id="searchInput" placeholder="搜索申请人或目录..." oninput="filterTable()">
+  </div>
+
+  <table id="applicationTable">
+    <thead>
+      <tr>
+        <th>Token</th>
+        <th>目录</th>
+        <th>申请人</th>
+        <th>描述</th>
+        <th>是否覆盖权限</th>
+        <th>创建时间</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+      <!-- 动态插入数据 -->
+    </tbody>
+  </table>
+
+  <script>
+    let applications = []; // 存储接口获取的数据
+
+    // 页面加载时调用获取数据函数
+    document.addEventListener('DOMContentLoaded', fetchData);
+
+    // 从接口获取数据
+    async function fetchData() {
+      try {
+        const response = await fetch('/cdn/token/getTokenList'); // 替换为实际接口地址
+        const data = await response.json();
+        
+        applications = data; // 将数据存储在全局变量中
+        renderTable(applications); // 渲染表格
+      } catch (error) {
+        console.error('获取数据时出错:', error);
+      }
+    }
+
+    // 渲染表格
+    function renderTable(data) {
+      const tableBody = document.getElementById('tableBody');
+      tableBody.innerHTML = ''; // 清空现有表格内容
+
+      data.forEach(application => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${application.token}</td>
+          <td>${application.directory}</td>
+          <td>${application.applicant}</td>
+          <td>${application.desc || ""}</td>
+          <td>${application.overridePermission ? '是' : '否'}</td>
+          <td>${application.createdAt}</td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    // 本地模糊搜索
+    function filterTable() {
+      const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+
+      const filteredData = applications.filter(application =>
+        application.applicant.toLowerCase().includes(searchQuery) ||
+        application.directory.toLowerCase().includes(searchQuery)
+      );
+
+      renderTable(filteredData); // 使用过滤后的数据重新渲染表格
+    }
+  </script>
+</body>
+</html>
