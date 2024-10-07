@@ -55,6 +55,11 @@ contract InviteAndDividendTest is Test {
         console.log("balance of owner htx", usdtToken.balanceOf(owner));
         console.log("balance of owner trx", usdtToken.balanceOf(owner));
 
+        // owner用户将100usdt转给user用户
+        usdtToken.transfer(user, 100 * 1e18);
+
+        console.log("balance of user usdt", usdtToken.balanceOf(user));
+
         vm.stopPrank();
 
         inviteAndDividend =
@@ -100,32 +105,34 @@ contract InviteAndDividendTest is Test {
         vm.stopPrank();
     }
 
-    function testDeposit() public {
-        // 1. 设置初始状态
-        // uint256 initialBalance = 1000 * 1e18; // 1000 USDT
-        // deal(address(USDT), user, initialBalance);
-        // deal(address(HTX), address(inviteAndDividend), 1000 * 1e18); // 确保合约有足够的 HTX
+    // 测试用户没有绑定推荐用户就来存款
+    function testDepositWithoutBindingReferrer() public {
+        // 用户将自己的usdt授权给分红合约
+        vm.startPrank(user);
+        usdtToken.approve(address(inviteAndDividend), 100 * 1e18);
 
-        // 2. 绑定推荐人
+        // 尝试存入100usdt, 没有绑定推荐人, 应触发 revert
+        vm.expectRevert("Must be bound to a referrer");
+        inviteAndDividend.deposit(100 * 1e18);
+
+        vm.stopPrank();
+    }
+
+    // 用户存入错误金额, 应触发 revert
+    function testDepositErrorAmount() public {
+        // 绑定推荐人
         vm.startPrank(user);
         inviteAndDividend.bindUser(referrer);
-
-        // 验证绑定成功，通过读取用户结构体来检查推荐人地址
-        (address actualReferrer,,,,,,,,) = inviteAndDividend.users(user);
-        assertEq(actualReferrer, referrer, "Referrer should be bound successfully");
-
-        // 再次尝试绑定上级，应该失败
-        vm.expectRevert("Already bound to a referrer");
-        inviteAndDividend.bindUser(address(0x999));
         vm.stopPrank();
 
-        //     // 3. 授权 USDT
-        //     // vm.startPrank(user);
-        //     // USDT.approve(address(inviteAndDividend), initialBalance);
+        // 用户将自己的usdt授权给分红合约
+        vm.startPrank(user);
+        usdtToken.approve(address(inviteAndDividend), 100 * 1e18);
 
-        //     // 4. 尝试存入错误金额
-        //     // vm.expectRevert("Deposit amount must be equal to 100 USDT");
-        //     // inviteAndDividend.deposit(50 * 1e18);
-        //     // vm.stopPrank();
+        // 4. 尝试存入错误金额
+        vm.expectRevert("Deposit amount must be equal to 100 USDT");
+        inviteAndDividend.deposit(50 * 1e18);
+
+        vm.stopPrank();
     }
 }
