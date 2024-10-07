@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
 /**
  * 复制文件
@@ -8,7 +8,7 @@ const path = require('path');
  */
 function copyFileSync(src, dest) {
   fs.copyFileSync(src, dest);
-  console.log(`复制文件: ${src} 到 ${dest}`);
+  // console.log(`复制文件: ${src} 到 ${dest}`);
 }
 
 /**
@@ -31,7 +31,7 @@ function copyDirRecursiveSync(src, dest) {
   createDirSync(dest);
   const entries = fs.readdirSync(src, { withFileTypes: true });
 
-  entries.forEach(entry => {
+  entries.forEach((entry) => {
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
 
@@ -44,9 +44,12 @@ function copyDirRecursiveSync(src, dest) {
 }
 
 // 示例用法
-const sourceDir = path.join(__dirname, 'web');
-const destinationDir = path.join(__dirname, 'dist/web');
+const sourceDir = path.join(__dirname, "web");
+const destinationDir = path.join(__dirname, "dist/web");
 
 copyDirRecursiveSync(sourceDir, destinationDir);
-copyDirRecursiveSync(path.join(__dirname, 'swagger'), path.join(__dirname, 'dist/web/swagger'))
-console.log('目录复制完成！');
+copyDirRecursiveSync(
+  path.join(__dirname, "swagger"),
+  path.join(__dirname, "dist/web/swagger")
+);
+console.log("目录复制完成！");

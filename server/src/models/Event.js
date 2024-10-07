@@ -3,10 +3,16 @@ const mongoose = require("mongoose");
 const EventSchema = new mongoose.Schema({
   blockNumber: Number,
   transactionHash: String,
-  logIndex: Number,
+  transactionIndex: Number,
+  index: Number,
   address: String,
   event: String,
-  returnValues: Object,
+  args: mongoose.Schema.Types.Mixed,
+  // 其他您需要的字段
 });
 
-module.exports = mongoose.model("Event", EventSchema);
+EventSchema.index({ transactionHash: 1, index: 1 }, { unique: true });
+
+const Event = mongoose.model("Event", EventSchema);
+
+module.exports = Event;
