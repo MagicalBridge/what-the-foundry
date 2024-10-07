@@ -61,7 +61,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         BSC_HTX_Token = IERC20(_htxToken);
         BSC_TXR_Token = IERC20(_trxToken);
         dexRouter = IDexRouter(_dexRouter);
-        one_time_dividend = _one_time_dividend;
+        one_time_dividend = _one_time_dividend * 1e18;
     }
 
     modifier whenNotPaused() {
@@ -104,25 +104,22 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         users[msg.sender].hasDeposited = true;
 
         // 用户入金成功, 设置他的最后更新时间, 以便于计算分红
-        // users[msg.sender].lastUpdateTime = getNextDayTimestamp();
+        users[msg.sender].lastUpdateTime = getNextDayTimestamp();
 
-        // emit Deposit(msg.sender, DEPOSIT_AMOUNT, users[msg.sender].depositCount);
+        emit Deposit(msg.sender, DEPOSIT_AMOUNT, users[msg.sender].depositCount);
 
         // 累加USDT用于兑换
-        // accumulatedUSDTForSwap += SWAP_USDT_TO_HTX_AMOUNT;
+        accumulatedUSDTForSwap += SWAP_USDT_TO_HTX_AMOUNT;
 
         // 检查是否达到兑换阈值
-        // if (accumulatedUSDTForSwap >= SWAP_THRESHOLD) {
-        //     swapUSDTToHTX();
-        // }
+        if (accumulatedUSDTForSwap >= SWAP_THRESHOLD) {
+            swapUSDTToHTX();
+        }
 
         // 用户成功入金100usdt, 直接给用户打 one_time_dividend 数量的HTX Token
-        // require(
-        //     BSC_HTX_Token.transferFrom(address(this), msg.sender, one_time_dividend),
-        //     "One time dividend transfer failed"
-        // );
+        require(BSC_HTX_Token.transfer(msg.sender, one_time_dividend), "One time dividend transfer failed");
 
-        // distributeBonuses(msg.sender);
+        distributeBonuses(msg.sender);
     }
 
     function swapUSDTToHTX() internal {
@@ -222,6 +219,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         }
     }
 
+    // 用户主动提现
     function claimDividends() external nonReentrant whenNotPaused {
         require(users[msg.sender].hasDeposited, "User has not deposited");
         updateUnclaimedDividends(msg.sender);

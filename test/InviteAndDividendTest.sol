@@ -63,7 +63,15 @@ contract InviteAndDividendTest is Test {
         vm.stopPrank();
 
         inviteAndDividend =
-            new InviteAndDividend(address(usdtToken), address(htxToken), address(trxToken), pancakeRouter, 700);
+            new InviteAndDividend(address(usdtToken), address(htxToken), address(trxToken), pancakeRouter, 7000000);
+
+        // owner用户将htxtoken转给合约
+        vm.startPrank(owner);
+        htxToken.transfer(address(inviteAndDividend), 10000000 * 1e18);
+        vm.stopPrank();
+
+        console.log("balance of InviteAndDividend", htxToken.balanceOf(address(inviteAndDividend))); // 10000000,000,000,000,000,000,000
+        console.log("balance of owner", htxToken.balanceOf(owner));
 
         // uint256 initialBalance = 1000 * 1e18; // 1000 USDT
         // deal(address(USDT), user, initialBalance);
@@ -134,5 +142,55 @@ contract InviteAndDividendTest is Test {
         inviteAndDividend.deposit(50 * 1e18);
 
         vm.stopPrank();
+    }
+
+    // 测试存入正确的金额, 用户的对应状态应该发生改变
+    function testDepositCorrectAmount() public {
+        // 绑定推荐人
+        vm.startPrank(user);
+
+        console.log("referrer", referrer);
+
+        inviteAndDividend.bindUser(referrer);
+        vm.stopPrank();
+
+        // 用户将自己的usdt授权给分红合约
+        vm.startPrank(user);
+        usdtToken.approve(address(inviteAndDividend), 100 * 1e18);
+
+        // 尝试存入100usdt
+        inviteAndDividend.deposit(100 * 1e18);
+        vm.stopPrank();
+
+        // 验证用户存入100usdt后, 对应的状态发生改变
+        (
+            address referrerParams, // 用户的推荐人，即推荐他的上级用户
+            uint256 directReward, // 直接推荐奖励
+            uint256 indirectReward, // 间接推荐奖励
+            uint256 totalReward, // 总计推荐奖励, 包含直接推荐和间接推荐
+            bool isBound, // 是否与上级绑过, 同一个地址只允许与一位用户绑定, 作为他/她的上级
+            bool hasDeposited, // 是否有过投注行为, 是否已入金
+            uint8 depositCount, // 投注次数
+            uint256 lastUpdateTime, // 最后一次更新分红时间戳
+            uint256 unclaimedDividends // 还没有提取的分红金额
+        ) = inviteAndDividend.users(user);
+
+        console.log("referrerParams", referrerParams);
+        console.log("directReward", directReward);
+        console.log("indirectReward", indirectReward);
+        console.log("totalReward", totalReward);
+        console.log("isBound", isBound);
+        console.log("hasDeposited", hasDeposited);
+        console.log("depositCount", depositCount);
+        console.log("lastUpdateTime", lastUpdateTime);
+        console.log("unclaimedDividends", unclaimedDividends);
+
+        assertEq(hasDeposited, true, "User deposited money. Should be true.");
+        assertEq(isBound, true, "User is bound. Should be true.");
+        assertEq(depositCount, 1, "User deposited once. Should be 1.");
+
+        // 用户存入100usdt，一次性分红7000000 htx token,
+        console.log("balance of user", htxToken.balanceOf(address(user)));
+        assertEq(htxToken.balanceOf(address(user)), 7000000 * 1e18, "User should have received 7000000 HTX.");
     }
 }
