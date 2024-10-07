@@ -1,10 +1,8 @@
 const Router = require("koa-router");
-const tokenRouter = require("./demo");
 const mainRouter = require("./main");
 
 const router = new Router();
 
-router.use("/demo", tokenRouter.routes());
 router.use("/main", mainRouter.routes());
 
 // 健康检查路由

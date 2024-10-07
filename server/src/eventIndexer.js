@@ -6,16 +6,62 @@ const { getProvider } = require("./utils/ethersProvider");
 
 // 配置
 const REQUIRED_CONFIRMATIONS = 12;
-const PENDING_EVENT_CHECK_INTERVAL = 0.5 * 60 * 1000; // 5分钟
+const PENDING_EVENT_CHECK_INTERVAL = 5 * 60 * 1000; // 5分钟
 const ABI_UPDATE_INTERVAL = 24 * 60 * 60 * 1000; // 24小时
-// const ABI_UPDATE_INTERVAL = 0.2 * 60 * 1000; // 5分钟
 
 // 合约 ABI 和地址
-const contractABI = [
-  "event testEvent(address indexed user)",
-  "event testAction(address indexed user)",
-];
+const contractABI = `
+  event testAction(address indexed user);
+  event UserBound(address indexed user, address indexed referrer);
+  event Deposit(address indexed user, uint256 amount, uint256 depositCount);
+  event RewardPaid(address indexed user, uint256 amount);
+  event RewardTransferFailed(address indexed user, uint256 amount);
+  event DividendsClaimed(address indexed user, uint256 usdtAmount, uint256 amount);
+  event USDTSwappedToHTX(uint256 usdtAmount, uint256 htxAmount);
+  event ContractPaused(address by);
+  event ContractUnpaused(address by);`
+  .split(";")
+  .map((item) => item.trim())
+  .filter((item) => item);
 const contractAddress = process.env.CONTRACT_ADDRESS;
+
+// 解析 ABI 字符串为 JSON 对象
+const parsedABI = contractABI
+  .map((item) => {
+    const match = item.match(/event\s+(\w+)\((.*?)\)/);
+    if (match) {
+      const [, name, params] = match;
+      return {
+        type: "event",
+        name,
+        inputs: params.split(",").map((param) => {
+          const parts = param.trim().split(" ");
+          let type, name, indexed;
+          if (parts.length === 3) {
+            [indexed, type, name] = parts;
+            indexed = indexed === "indexed";
+          } else if (parts.length === 2) {
+            if (parts[0] === "indexed") {
+              [indexed, type] = parts;
+              indexed = true;
+            } else {
+              [type, name] = parts;
+              indexed = false;
+            }
+          } else {
+            [type] = parts;
+            name = null;
+            indexed = false;
+          }
+          return { type, name, indexed };
+        }),
+      };
+    }
+    return null;
+  })
+  .filter(Boolean);
+
+console.log(123123, parsedABI);
 
 // 创建合约实例
 let contract = new ethers.Contract(contractAddress, contractABI, getProvider());
@@ -42,6 +88,18 @@ async function processEvent(event, currentBlockNumber) {
   try {
     const eventName = event?.fragment?.name || event?.event; // 兼容 PendingEvent 模型
     const confirmations = currentBlockNumber - event.blockNumber + 1;
+
+    // 解析事件参数
+    const eventABI = parsedABI.find((abi) => abi.name === eventName);
+    let parsedArgs = {};
+    if (eventABI && event.args) {
+      eventABI.inputs.forEach((input, index) => {
+        if (input.name) {
+          parsedArgs[input.name] = event.args[input.name] || event.args[index];
+        }
+      });
+    }
+
     let eventData = {
       blockNumber: event.blockNumber,
       transactionHash: event.transactionHash,
@@ -49,7 +107,7 @@ async function processEvent(event, currentBlockNumber) {
       index: event.index,
       address: event.address,
       event: eventName, // 兼容 PendingEvent 模型
-      returnValues: event.args || event.returnValues, // 兼容 PendingEvent 模型
+      args: parsedArgs, // 使用解析后的参数
     };
     if (event.log) {
       eventData.address = event.log?.address;
@@ -85,7 +143,8 @@ async function processEvent(event, currentBlockNumber) {
     }
     if (!eventName) {
       console.log(
-        `收到未知事件类型: ${event.topics ? event.topics[0] : "未知"}`
+        `收到未知事件类型: ${event.topics ? event.topics[0] : "未知"}`,
+        eventData.transactionHash
       );
       return;
     }

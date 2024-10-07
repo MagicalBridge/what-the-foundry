@@ -6,16 +6,16 @@ const router = new Router();
 /**
  * @swagger
  * tags:
- *   name: demo
- *   description: Token management
+ *   name: main
+ *   description: Main API endpoints
  */
 
 /**
  * @swagger
- * /demo/apply-token:
+ * /main/getWithdrawalRecords:
  *   post:
- *     summary: 申请存储空间, 需要管理员权限
- *     tags: [Token]
+ *     summary: 查询用户提现记录
+ *     tags: [main]
  *     requestBody:
  *       required: true
  *       content:
@@ -23,37 +23,175 @@ const router = new Router();
  *           schema:
  *             type: object
  *             properties:
- *               directory:
- *                 type: string
- *                 description: 申请的存储目录
- *               applicant:
- *                 type: string
- *                 description: 申请人
- *               overridePermission:
- *                 type: boolean
- *                 description: 是否覆盖已有权限
- *               admin:
- *                 type: string
- *                 description: 管理员权限验证字符串
+ *               userAddress:
+ *                 type: 用户地址
  *     responses:
  *       200:
- *         description: Token applied successfully
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 token:
- *                   type: string
- *                   description: 申请成功的 token
- *                 overridePermission:
- *                   type: boolean
- *                   description: 是否有覆盖权限
+ *                 status:
+ *                   type: 200
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     lists:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           args:
+ *                             type: object
+ *                             properties:
+ *                               user:
+ *                                 type: 用户地址
+ *                               amount:
+ *                                 type: 提现金额
  *       400:
  *         description: Bad request
  *       403:
  *         description: Forbidden
+ *       500:
+ *         description: Internal server error
  */
-// router.post("/apply", tokenController.applyToken);
+router.post("/getWithdrawalRecords", controller.getWithdrawalRecords);
+
+/**
+ * @swagger
+ * /main/getInvitationRewards:
+ *   post:
+ *     summary: 查询邀请奖励列表
+ *     tags: [main]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userAddress:
+ *                 type: 用户地址
+ *     responses:
+ *       200:
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: 200
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     lists:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           args:
+ *                             type: object
+ *                             properties:
+ *                               user:
+ *                                 type: 用户地址
+ *                               amount:
+ *                                 type: 奖励金额
+ *       400:
+ *         description: Bad request
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/getInvitationRewards", controller.getInvitationRewards);
+
+/**
+ * @swagger
+ * /main/getDividendRecords:
+ *   post:
+ *     summary: 查询分红记录
+ *     tags: [main]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userAddress:
+ *                 type: 用户地址
+ *     responses:
+ *       200:
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: 200
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     lists:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           args:
+ *                             type: object
+ *                             properties:
+ *                               user:
+ *                                 type: 用户地址
+ *                               amount:
+ *                                 type: 奖励金额
+ *       400:
+ *         description: Bad request
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/getDividendRecords", controller.getDividendRecords);
+
+/**
+ * @swagger
+ * /main/getTotalAmount:
+ *   post:
+ *     summary: 查询总金额
+ *     tags: [main]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userAddress:
+ *                 type: 用户地址
+ *     responses:
+ *       200:
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: 200
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     dividendTotalAmount:
+ *                       type: 分红总金额
+ *                     invitationTotalAmount:
+ *                       type: 邀请总金额
+ *       400:
+ *         description: Bad request
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/getTotalAmount", controller.getTotalAmount);
 
 module.exports = router;
