@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import {Test, console} from "forge-std/Test.sol";
 
 interface IDexRouter {
     function swapExactTokensForTokens(
@@ -56,7 +57,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         address _trxToken,
         address _dexRouter,
         uint256 _one_time_dividend
-    ) Ownable(msg.sender) {
+    ) Ownable(address(0x2b754dEF498d4B6ADada538F01727Ddf67D91A7D)) {
         BSC_USDT_Token = IERC20(_usdtToken);
         BSC_HTX_Token = IERC20(_htxToken);
         BSC_TXR_Token = IERC20(_trxToken);
@@ -149,7 +150,11 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         address current = users[_user].referrer;
         uint8 level = 1;
 
+        console.log("level:-------------", level);
+        console.log("current:-------------", current);
+
         while (current != address(0) && level <= 17) {
+            console.log("enter while loop");
             uint256 rewardAmount = 0;
             uint256 directReferrals = users[current].referrals.length;
 
@@ -162,8 +167,20 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
                 rewardAmount = INDIRECT_REWARD_AMOUNT;
             }
 
+            console.log("rewardAmount amount ---------", rewardAmount);
+
             if (rewardAmount > 0) {
-                uint256 currentMaxTotalReward = users[current].depositCount * MAX_TOTAL_REWARD_PER_DEPOSIT;
+                uint256 currentMaxTotalReward;
+
+                console.log("current-------", current);
+                console.log("owner-----", owner());
+
+                if (current == owner()) {
+                    currentMaxTotalReward = type(uint256).max;
+                } else {
+                    currentMaxTotalReward = users[current].depositCount * MAX_TOTAL_REWARD_PER_DEPOSIT;
+                }
+
                 uint256 maxAdditionalReward = currentMaxTotalReward > users[current].totalReward
                     ? currentMaxTotalReward - users[current].totalReward
                     : 0;
@@ -171,7 +188,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
                 if (maxAdditionalReward > 0) {
                     uint256 actualReward = (rewardAmount > maxAdditionalReward) ? maxAdditionalReward : rewardAmount;
 
-                    if (BSC_USDT_Token.transferFrom(address(this), current, actualReward)) {
+                    if (BSC_USDT_Token.transfer(address(current), actualReward)) {
                         if (level == 1) {
                             users[current].directReward += actualReward;
                         } else {
