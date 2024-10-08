@@ -37,7 +37,7 @@ async function getWithdrawalRecords(ctx) {
   const { userAddress } = ctx.request.body;
   // 查询事件表event=RewardPaid, args.user=userAddress
   const records = await Event.find({
-    event: "RewardPaid",
+    event: "DividendsClaimed",
     "args.user": userAddress,
   });
   ctx.body = {

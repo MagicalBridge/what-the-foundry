@@ -48,7 +48,9 @@ const router = new Router();
  *                               user:
  *                                 type: 用户地址
  *                               amount:
- *                                 type: 提现金额
+ *                                 type: htx提现金额
+ *                               usdtAmount:
+ *                                 type: USDT 提现金额
  *       400:
  *         description: Bad request
  *       403:
