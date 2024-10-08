@@ -113,7 +113,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
 
         // 检查是否达到兑换阈值
         if (accumulatedUSDTForSwap >= SWAP_THRESHOLD) {
-            swapUSDTToHTX();
+            swap_USDT_To_HTX();
         }
 
         // 用户成功入金100usdt, 直接给用户打 one_time_dividend 数量的HTX Token
@@ -122,7 +122,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         distributeBonuses(msg.sender);
     }
 
-    function swapUSDTToHTX() internal {
+    function swap_USDT_To_HTX() internal {
         require(BSC_USDT_Token.approve(address(dexRouter), accumulatedUSDTForSwap), "Approval failed");
 
         address[] memory path = new address[](3);
@@ -229,7 +229,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
 
         // 尝试执行USDT到HTX的兑换
         if (accumulatedUSDTForSwap >= SWAP_THRESHOLD) {
-            swapUSDTToHTX();
+            swap_USDT_To_HTX();
         }
 
         // 一次性地将分红转给用户，避免多次转给单个用户，提高效率
