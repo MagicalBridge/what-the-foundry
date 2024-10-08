@@ -39,15 +39,15 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
 
     struct User {
         address referrer; // 用户的推荐人，即推荐他的上级用户
-        address[] referrals; // 用户所推荐的下级, 这是直接推荐的, 不含所有间接推荐用户
         uint256 directReward; // 直接推荐奖励
         uint256 indirectReward; // 间接推荐奖励
         uint256 totalReward; // 总计推荐奖励, 包含直接推荐和间接推荐
-        bool isBound; // 是否与上级绑过, 同一个地址只允许与一位用户绑定, 作为他/她的上级
-        bool hasDeposited; // 是否有过投注行为, 是否已入金
         uint8 depositCount; // 投注次数
         uint256 lastUpdateTime; // 最后一次更新分红时间戳
         uint256 unclaimedDividends; // 还没有提取的分红金额
+        bool isBound; // 是否与上级绑过, 同一个地址只允许与一位用户绑定, 作为他/她的上级
+        bool hasDeposited; // 是否有过投注行为, 是否已入金
+        address[] referrals; // 用户所推荐的下级, 这是直接推荐的, 不含所有间接推荐用户
     }
 
     constructor(

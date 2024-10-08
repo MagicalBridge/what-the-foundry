@@ -168,22 +168,22 @@ contract InviteAndDividendTest is Test {
             uint256 directReward, // 直接推荐奖励
             uint256 indirectReward, // 间接推荐奖励
             uint256 totalReward, // 总计推荐奖励, 包含直接推荐和间接推荐
-            bool isBound, // 是否与上级绑过, 同一个地址只允许与一位用户绑定, 作为他/她的上级
-            bool hasDeposited, // 是否有过投注行为, 是否已入金
             uint8 depositCount, // 投注次数
             uint256 lastUpdateTime, // 最后一次更新分红时间戳
-            uint256 unclaimedDividends // 还没有提取的分红金额
+            uint256 unclaimedDividends, // 还没有提取的分红金额
+            bool isBound, // 是否与上级绑过, 同一个地址只允许与一位用户绑定, 作为他/她的上级
+            bool hasDeposited // 是否有过投注行为, 是否已入金
         ) = inviteAndDividend.users(user);
 
         console.log("referrerParams", referrerParams);
         console.log("directReward", directReward);
         console.log("indirectReward", indirectReward);
         console.log("totalReward", totalReward);
-        console.log("isBound", isBound);
-        console.log("hasDeposited", hasDeposited);
         console.log("depositCount", depositCount);
         console.log("lastUpdateTime", lastUpdateTime);
         console.log("unclaimedDividends", unclaimedDividends);
+        console.log("isBound", isBound);
+        console.log("hasDeposited", hasDeposited);
 
         assertEq(hasDeposited, true, "User deposited money. Should be true.");
         assertEq(isBound, true, "User is bound. Should be true.");
@@ -191,6 +191,23 @@ contract InviteAndDividendTest is Test {
 
         // 用户存入100usdt，一次性分红7000000 htx token,
         console.log("balance of user", htxToken.balanceOf(address(user)));
-        assertEq(htxToken.balanceOf(address(user)), 7000000 * 1e18, "User should have received 7000000 HTX.");
+        uint256 oneTimeDividend = inviteAndDividend.one_time_dividend();
+        assertEq(htxToken.balanceOf(address(user)), oneTimeDividend, "User should receive one time dividend in HTX");
+
+        // 验证推荐人的奖励分发情况
+
+        (
+            , // 用户的推荐人，即推荐他的上级用户
+            uint256 referrerdirectReward, // 直接推荐奖励
+            , // 间接推荐奖励
+            uint256 referrertotalReward, // 总计推荐奖励, 包含直接推荐和间接推荐
+            , // 是否与上级绑过, 同一个地址只允许与一位用户绑定, 作为他/她的上级
+            , // 是否有过投注行为, 是否已入金
+            , // 投注次数
+            , // 最后一次更新分红时间戳
+                // 还没有提取的分红金额
+        ) = inviteAndDividend.users(referrer);
+        // assertEq(referrerdirectReward, 38 * 1e18, "Referrer should receive direct reward");
+        // assertEq(referrertotalReward, 38 * 1e18, "Referrer should receive total reward");
     }
 }
