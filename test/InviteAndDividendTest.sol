@@ -32,6 +32,7 @@ contract InviteAndDividendTest is Test {
     address owner;
     address referrer;
     address user;
+    address user2;
     address pancakeRouter;
 
     function setUp() public {
@@ -40,6 +41,7 @@ contract InviteAndDividendTest is Test {
         // referrer = makeAddr("referrer");
         referrer = address(0x2b754dEF498d4B6ADada538F01727Ddf67D91A7D);
         user = makeAddr("user");
+        user2 = makeAddr("user2");
         pancakeRouter = address(0x1b81D678ffb9C0263b24A97847620C99d213eB14);
 
         // 部署USDT，HTX，TXR代币
@@ -53,13 +55,17 @@ contract InviteAndDividendTest is Test {
         console.log("trxToken", address(trxToken));
 
         console.log("balance of owner usdt", usdtToken.balanceOf(owner));
-        console.log("balance of owner htx", usdtToken.balanceOf(owner));
-        console.log("balance of owner trx", usdtToken.balanceOf(owner));
+        console.log("balance of owner htx ", usdtToken.balanceOf(owner));
+        console.log("balance of owner trx ", usdtToken.balanceOf(owner));
 
         // owner用户将100usdt转给user用户
         usdtToken.transfer(user, 100 * 1e18);
 
-        console.log("balance of user usdt", usdtToken.balanceOf(user));
+        // owner用户将100usdt转给user2用户
+        usdtToken.transfer(user2, 100 * 1e18);
+
+        console.log("balance of user usdt ", usdtToken.balanceOf(user));
+        console.log("balance of user2 usdt", usdtToken.balanceOf(user2));
 
         inviteAndDividend =
             new InviteAndDividend(address(usdtToken), address(htxToken), address(trxToken), pancakeRouter, 7000000);
@@ -144,5 +150,10 @@ contract InviteAndDividendTest is Test {
         );
 
         console.log("contract balance of usdtToken ---- ", usdtToken.balanceOf(address(inviteAndDividend)));
+
+        // user2 绑定推荐人，user
+        vm.startPrank(user2);
+        inviteAndDividend.bindUser(user);
+        vm.stopPrank();
     }
 }
