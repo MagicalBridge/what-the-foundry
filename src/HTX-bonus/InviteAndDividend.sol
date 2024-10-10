@@ -189,7 +189,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
 
         address[] memory path = new address[](3);
         path[0] = address(BSC_USDT_Token);
-        path[0] = address(BSC_TXR_Token);
+        path[1] = address(BSC_TXR_Token);
         path[2] = address(BSC_HTX_Token);
 
         uint256 deadline = block.timestamp + 300; // 5 minutes
