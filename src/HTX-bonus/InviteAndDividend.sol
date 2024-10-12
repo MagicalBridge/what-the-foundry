@@ -14,8 +14,6 @@ interface IDexRouter {
         address to,
         uint256 deadline
     ) external returns (uint256[] memory amounts);
-
-    function getAmountsOut(uint256 amountIn, address[] memory path) external view returns (uint256[] memory amounts);
 }
 
 contract InviteAndDividend is Ownable, ReentrancyGuard {
@@ -135,7 +133,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         // 计算用户开始计算分红那天的索引
         uint256 startIndex = (lastUpdateTime - deployTime) / 1 days;
 
-        // 计算当日日期索引
+        // 计算提现当日的日期索引
         uint256 endIndex = (currentTime - deployTime) / 1 days;
 
         require(startIndex < everyDayDividendAmountArr.length, "There is no dividend to distribute");
@@ -150,7 +148,7 @@ contract InviteAndDividend is Ownable, ReentrancyGuard {
         user.lastUpdateTime = currentTime;
 
         // 给用户转账
-        require(BSC_HTX_Token.transfer(msg.sender, totalDividends), "Dividend transfer failed");
+        require(BSC_HTX_Token.transfer(msg.sender, totalDividends * user.depositCount), "Dividend transfer failed");
 
         // 尝试执行USDT到HTX的兑换
         if (accumulatedUSDTForSwap >= SWAP_THRESHOLD) {
