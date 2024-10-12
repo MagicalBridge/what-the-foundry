@@ -14,8 +14,6 @@ contract DeployInviteAndDividendUpgradeable is Script {
         // 根据私钥生成部署者的地址
         address deployerAddress = vm.addr(deployerPrivateKey);
 
-        console.log("deployerPrivateKey", deployerPrivateKey);
-
         // 启动广播以启用交易
         vm.startBroadcast(deployerPrivateKey);
 
