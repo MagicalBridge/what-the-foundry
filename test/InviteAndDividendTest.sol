@@ -33,6 +33,7 @@ contract InviteAndDividendTest is Test {
     address referrer;
     address user;
     address user2;
+    address user3;
     address pancakeRouter;
 
     function setUp() public {
@@ -42,6 +43,7 @@ contract InviteAndDividendTest is Test {
         referrer = address(0x2b754dEF498d4B6ADada538F01727Ddf67D91A7D);
         user = makeAddr("user");
         user2 = makeAddr("user2");
+        user3 = makeAddr("user3");
         pancakeRouter = address(0x1b81D678ffb9C0263b24A97847620C99d213eB14);
 
         // 部署USDT，HTX，TXR代币
@@ -59,16 +61,19 @@ contract InviteAndDividendTest is Test {
         console.log("balance of owner trx ", usdtToken.balanceOf(owner));
 
         // owner用户将100usdt转给user用户
-        usdtToken.transfer(user, 100 * 1e18);
+        usdtToken.transfer(user, 1000 * 1e18);
 
         // owner用户将100usdt转给user2用户
-        usdtToken.transfer(user2, 100 * 1e18);
+        usdtToken.transfer(user2, 1000 * 1e18);
+
+        // owner用户将100usdt转给user3用户
+        usdtToken.transfer(user3, 1000 * 1e18);
 
         console.log("balance of user usdt ", usdtToken.balanceOf(user));
         console.log("balance of user2 usdt", usdtToken.balanceOf(user2));
 
         inviteAndDividend =
-            new InviteAndDividend(address(usdtToken), address(htxToken), address(trxToken), pancakeRouter, 7000000);
+            new InviteAndDividend(address(usdtToken), address(htxToken), address(trxToken), pancakeRouter, 700);
 
         // owner用户将htxtoken转给合约
         htxToken.transfer(address(inviteAndDividend), 10000000 * 1e18);
@@ -76,14 +81,68 @@ contract InviteAndDividendTest is Test {
 
         console.log("balance of InviteAndDividend", htxToken.balanceOf(address(inviteAndDividend))); // 10000000,000,000,000,000,000,000
         console.log("balance of owner", htxToken.balanceOf(owner));
+    }
 
-        // uint256 initialBalance = 1000 * 1e18; // 1000 USDT
-        // deal(address(USDT), user, initialBalance);
-        // deal(address(HTX), address(inviteAndDividend), 1000 * 1e18); // 确保合约有足够的 HTX
+    // 测试只能绑定一个推荐人
+    function testUserCanBindReferrerOnce() public {
+        vm.startPrank(user);
+        inviteAndDividend.bindUser(referrer);
 
-        // 设置交易的初始权限
-        // vm.prank(address(this));
-        // inviteAndDividend.transferOwnership(owner);
+        // 验证绑定成功，通过读取用户结构体来检查推荐人地址
+        (address actualReferrer,,,,,,,) = inviteAndDividend.users(user);
+        assertEq(actualReferrer, referrer, "Referrer should be bound successfully");
+
+        // 再次尝试绑定上级，应该失败
+        vm.expectRevert("Already bound to a referrer");
+        inviteAndDividend.bindUser(address(0x999));
+        vm.stopPrank();
+    }
+
+    // 测试无法将用户绑定到零地址
+    function testCannotBindToZeroAddress() public {
+        vm.startPrank(user);
+        vm.expectRevert("Cannot bind a referrer that is the zero address");
+        inviteAndDividend.bindUser(address(0));
+        vm.stopPrank();
+    }
+
+    // 测试无法将自己绑定为推荐人
+    function testCannotBindToSelf() public {
+        vm.startPrank(user);
+        vm.expectRevert("Cannot refer yourself");
+        inviteAndDividend.bindUser(user);
+        vm.stopPrank();
+    }
+
+    // 测试用户没有绑定推荐用户就来存款
+    function testDepositWithoutBindingReferrer() public {
+        // 用户将自己的usdt授权给分红合约
+        vm.startPrank(user);
+        usdtToken.approve(address(inviteAndDividend), 100 * 1e18);
+
+        // 尝试存入100usdt, 没有绑定推荐人, 应触发 revert
+        vm.expectRevert("Must be bound to a referrer");
+        inviteAndDividend.deposit(100 * 1e18);
+
+        vm.stopPrank();
+    }
+
+    // 用户存入错误金额, 应触发 revert
+    function testDepositErrorAmount() public {
+        // 绑定推荐人
+        vm.startPrank(user);
+        inviteAndDividend.bindUser(referrer);
+        vm.stopPrank();
+
+        // 用户将自己的usdt授权给分红合约
+        vm.startPrank(user);
+        usdtToken.approve(address(inviteAndDividend), 100 * 1e18);
+
+        // 4. 尝试存入错误金额
+        vm.expectRevert("Deposit amount must be equal to 100 USDT");
+        inviteAndDividend.deposit(50 * 1e18);
+
+        vm.stopPrank();
     }
 
     // 测试存入正确的金额, 用户的对应状态应该发生改变
@@ -115,7 +174,6 @@ contract InviteAndDividendTest is Test {
             uint256 totalReward, // 总计推荐奖励, 包含直接推荐和间接推荐
             uint8 depositCount, // 投注次数
             uint256 lastUpdateTime, // 最后一次更新分红时间戳
-            uint256 unclaimedDividends, // 还没有提取的分红金额
             bool isBound, // 是否与上级绑过, 同一个地址只允许与一位用户绑定, 作为他/她的上级
             bool hasDeposited // 是否有过投注行为, 是否已入金
         ) = inviteAndDividend.users(user);
@@ -126,7 +184,6 @@ contract InviteAndDividendTest is Test {
         console.log("totalReward", totalReward);
         console.log("depositCount", depositCount);
         console.log("lastUpdateTime", lastUpdateTime);
-        console.log("unclaimedDividends", unclaimedDividends);
         console.log("isBound", isBound);
         console.log("hasDeposited", hasDeposited);
 
@@ -155,5 +212,37 @@ contract InviteAndDividendTest is Test {
         vm.startPrank(user2);
         inviteAndDividend.bindUser(user);
         vm.stopPrank();
+
+        // user2 入金100usdt
+        vm.startPrank(user2);
+        usdtToken.approve(address(inviteAndDividend), 100 * 1e18);
+        inviteAndDividend.deposit(100 * 1e18);
+        vm.stopPrank();
+
+        // 验证user2的状态
+        (,,,, uint8 user2DepositCount,,, bool user2HasDeposited) = inviteAndDividend.users(user2);
+        assertEq(user2HasDeposited, true, "User2 should have deposited");
+        assertEq(user2DepositCount, 1, "User2 should have deposited once");
+
+        // 验证user作为直接推荐人的奖励
+        (, uint256 userDirectReward,, uint256 userTotalReward,,,,) = inviteAndDividend.users(user);
+        assertEq(userDirectReward, 38 * 1e18, "User should receive 38 USDT as direct reward for user2");
+        assertEq(userTotalReward, 38 * 1e18, "User's total reward should be 38 USDT");
+
+        // 验证referrer 作为间接推荐人的收益
+        (,, uint256 referrerIndirectReward, uint256 referrerTotalReward,,,,) = inviteAndDividend.users(referrer);
+        assertEq(referrerIndirectReward, 2 * 1e18, "Referrer should receive 2 USDT as indirect reward for user2");
+        assertEq(referrerTotalReward, 40 * 1e18, "Referrer's total reward should be 40 USDT (38 + 2)");
+
+        // 推荐的总收益没有达到阈值，不允许重复入金
+        vm.startPrank(user);
+        usdtToken.approve(address(inviteAndDividend), 100 * 1e18);
+        vm.expectRevert("Insufficient total reward for re-deposit");
+        inviteAndDividend.deposit(100 * 1e18);
+        vm.stopPrank();
+
+        // 验证用户的存款次数没有增加
+        (,,,, uint8 userDepositCount,,,) = inviteAndDividend.users(user);
+        assertEq(userDepositCount, 1, "User deposited once again");
     }
 }
